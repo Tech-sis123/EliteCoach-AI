@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: notification-service
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${EMAIL_USERNAME}
+    password: ${EMAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+            auth: true
+            starttls:
+                enable: true
+                required: true
+                connectiontimeout: 5000
+                timeout: 5000
+                writetimeout: 5000
+
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASS:guest}
+    listener:
+      simple:
+        retry:
+          enabled: true
+          initial-interval: 3s
+          max-attempts: 3
+        acknowledge-mode: auto
+
+
+# 4. Internal Microservice URLs
+services:
+  identity-service:
+    url: ${IDENTITY_SERVICE_URL:http://localhost:8001} # The port from your AuthController
+
+# 5. Logging for Debugging Events
+logging:
+  level:
+    root: INFO
+    org.springframework.amqp: DEBUG # Watch RabbitMQ traffic
+    org.identity_service.EliteCoach: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+INTERSWITCH:
+  GENERAL_CLIENT_ID: ${INTERSWITCH_GENERAL_CLIENT_ID}
+  GENERAL_CLIENT_SECRET: ${INTERSWITCH_GENERAL_CLIENT_SECRET}
+
