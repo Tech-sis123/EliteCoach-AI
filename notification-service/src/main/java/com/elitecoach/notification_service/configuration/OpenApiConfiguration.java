@@ -1,21 +1,18 @@
-package org.identity_service.EliteCoach.configuration;
+package com.elitecoach.notification_service.configuration;
 
 
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
-import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
-import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.info.Contact;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.info.License;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.servers.Server;
 
 @OpenAPIDefinition(
         info = @Info(
-                title = "EliteCoach-Identity Service API Documentation",
+                title = "EliteCoach-Notification Service API Documentation",
                 version = "1.0",
-                description = "API documentation for the EliteCoach-Identity Service application",
+                description = "API documentation for the EliteCoach-Notification Service application",
                 contact = @Contact(
                         name = "Fakorode Henry",
                         email = "fakorodehenry@gmail.com",
@@ -24,7 +21,7 @@ import io.swagger.v3.oas.annotations.servers.Server;
                 license = @License(
                         name = "EliteCoach License"
                 ),
-                termsOfService = "Terms Of Service for EliteCoach-Identity Service API"
+                termsOfService = "Terms Of Service for EliteCoach-Notification Service API"
         ),
         servers = {
                 @Server(
@@ -35,18 +32,6 @@ import io.swagger.v3.oas.annotations.servers.Server;
                         url = "https://elitecoach.onrender.com",
                         description = "Production development server"
                 )
-        }
-        ,
-        security = @SecurityRequirement(name = "EliteCoach Auth")
-)
-@SecurityScheme(
-        name = "EliteCoach Auth",
-        type = SecuritySchemeType.HTTP,
-        scheme = "bearer",
-        bearerFormat = "jwt",
-        in = SecuritySchemeIn.HEADER,
-        description = "EliteCoach JWT Authentication"
-)
-
+        })
 public class OpenApiConfiguration {
 }

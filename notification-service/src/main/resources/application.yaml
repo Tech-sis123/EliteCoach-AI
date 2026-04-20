@@ -1,6 +1,20 @@
 spring:
   application:
     name: notification-service
+  datasource:
+    url: jdbc:mysql://${DB_HOST}:${DB_PORT}/notificationDb?useSSL=false
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.MySQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+      format_sql: true
+      dialect: org.hibernate.dialect.MySQL8Dialect
   mail:
     host: smtp.gmail.com
     port: 587
@@ -22,7 +36,7 @@ spring:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:guest}
-    password: ${RABBITMQ_PASS:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
     listener:
       simple:
         retry:
@@ -46,7 +60,8 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
 
-INTERSWITCH:
-  GENERAL_CLIENT_ID: ${INTERSWITCH_GENERAL_CLIENT_ID}
-  GENERAL_CLIENT_SECRET: ${INTERSWITCH_GENERAL_CLIENT_SECRET}
 
+
+INTERSWITCH:
+  GENERAL_CLIENT_ID: ${INTERSWITCH_GENERAL_CLIENT_ID:hello}
+  GENERAL_CLIENT_SECRET: ${INTERSWITCH_GENERAL_CLIENT_SECRET:hello}

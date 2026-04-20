@@ -1,3 +1,41 @@
 spring:
   application:
-    name: EliteCoach
+    name: IdentityService
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    port: 8883
+    username: ${RABBITMQ_USER}
+    password: ${RABBITMQ_PASSWORD}
+
+  datasource:
+    url: jdbc:mysql://${DB_HOST}:${DB_PORT}/userDb?useSSL=false
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+      database-platform: org.hibernate.dialect.MySQLDialect
+      hibernate:
+            ddl-auto: update
+      show-sql: true
+      properties:
+          hibernate:
+          format_sql: true
+          dialect: org.hibernate.dialect.MySQL8Dialect
+
+
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+
+NOTIFICATION-SERVICE:
+  BASE_URL: http://notification-service:8081
+
+server:
+  port=8083
