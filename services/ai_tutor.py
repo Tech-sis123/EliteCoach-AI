@@ -1,5 +1,5 @@
 import openai
-from app.core.config import settings
+from core.config import settings
 from typing import Optional, List
 import json
 

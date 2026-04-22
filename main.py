@@ -2,9 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
-from app.core.config import settings
-from app.core.database import Base, engine
-from app.routes import tutor_sessions, learning_paths, assessments, health
+from core.config import settings
+from core.database import Base, engine
+from routes import tutor_sessions, learning_paths, assessments, health
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -45,7 +45,7 @@ async def startup_event():
     logger.info("Starting AI Tutor Engine Service...")
     
     # Connect to RabbitMQ
-    from app.services.event_publisher import event_publisher
+    from services.event_publisher import event_publisher
     try:
         await event_publisher.connect()
     except Exception as e:
@@ -59,7 +59,7 @@ async def shutdown_event():
     """Cleanup on shutdown"""
     logger.info("Shutting down AI Tutor Engine Service...")
     
-    from app.services.event_publisher import event_publisher
+    from services.event_publisher import event_publisher
     await event_publisher.disconnect()
     
     logger.info("AI Tutor Engine Service shut down")

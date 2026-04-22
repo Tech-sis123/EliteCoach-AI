@@ -5,13 +5,13 @@ import json
 from datetime import datetime
 from typing import Optional
 
-from app.core.database import get_db
-from app.core.security import get_current_learner
-from app.schemas.schemas import TutorSessionResponse, TutorChat
-from app.models.models import TutorSession
-from app.services.rag_engine import rag_engine
-from app.services.event_publisher import event_publisher
-from app.services.identity_service_client import identity_service
+from core.database import get_db
+from core.security import get_current_learner
+from schemas.schemas import TutorSessionResponse, TutorChat
+from models.models import TutorSession
+from services.rag_engine import rag_engine
+from services.event_publisher import event_publisher
+from services.identity_service_client import identity_service
 
 logger = logging.getLogger(__name__)
 

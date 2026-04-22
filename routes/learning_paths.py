@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 import logging
 
-from app.core.database import get_db
-from app.core.security import get_current_learner
-from app.services.ai_tutor import ai_tutor_service
+from core.database import get_db
+from core.security import get_current_learner
+from services.ai_tutor import ai_tutor_service
 
 logger = logging.getLogger(__name__)
 

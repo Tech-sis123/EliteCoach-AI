@@ -2,7 +2,7 @@ from fastapi import Request, HTTPException, status
 from fastapi.security import HTTPBearer
 from typing import Optional
 import logging
-from app.services.identity_service_client import identity_service
+from services.identity_service_client import identity_service
 
 logger = logging.getLogger(__name__)
 

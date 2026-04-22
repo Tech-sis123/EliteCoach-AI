@@ -3,10 +3,10 @@ from sqlalchemy.orm import Session
 import logging
 import json
 
-from app.core.database import get_db
-from app.core.security import get_current_learner
-from app.models.models import Assessment
-from app.services.ai_tutor import ai_tutor_service
+from core.database import get_db
+from core.security import get_current_learner
+from models.models import Assessment
+from services.ai_tutor import ai_tutor_service
 
 logger = logging.getLogger(__name__)
 
