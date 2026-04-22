@@ -51,27 +51,27 @@ public class JwtService {
 
     // Generate an access token with default validity and subject=email
     public Map<String, Object> generateAccessToken(String email) {
-        return generateToken(Map.of(), email, accessTokenMinutes);
+        return generateToken("accessToken", Map.of(), email, accessTokenMinutes);
     }
 
     // Generate refresh token with default validity and subject=email
     public Map<String, Object> generateRefreshToken(String email) {
-        return generateToken(Map.of(), email, refreshTokenMinutes);
+        return generateToken("refreshToken", Map.of(), email, refreshTokenMinutes);
     }
 
     // Generate token with extra claims and custom validity (minutes)
-    public Map<String,Object> generateToken(Map<String, Object> extraClaims, String email, long minutesValid) {
+    public Map<String,Object> generateToken(String name, Map<String, Object> extraClaims, String email, long minutesValid) {
         Date now = new Date(System.currentTimeMillis());
         long expiryMillis = minutesValid *  60 * 1000;
         Date expiry = new Date(System.currentTimeMillis() + expiryMillis);
-        String accessToken = Jwts.builder()
+        String token = Jwts.builder()
                 .claims(extraClaims)
                 .subject(email)
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(getKey())
                 .compact();
-        return Map.of("accessToken", accessToken,"expiry", expiry);
+        return Map.of( name, token,"expiry", expiry);
     }
 
     public SecretKey getKey() {

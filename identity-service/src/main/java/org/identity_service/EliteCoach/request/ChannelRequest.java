@@ -2,11 +2,11 @@ package org.identity_service.EliteCoach.request;
 
 import lombok.Data;
 
-import java.util.UUID;
-
 @Data
-public class EmailRequest {
+public class ChannelRequest {
+
+    private String channel;
+    private String body;
     private String to;
     private String subject;
-    private String body;
 }

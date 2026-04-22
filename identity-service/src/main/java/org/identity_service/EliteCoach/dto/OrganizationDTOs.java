@@ -18,7 +18,6 @@ public class OrganizationDTOs {
         private String industry;
         private String country;
         private String website;
-        private UUID adminUserId;
         private String planTier;
     }
 

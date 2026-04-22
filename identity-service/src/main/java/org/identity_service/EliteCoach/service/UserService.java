@@ -31,18 +31,21 @@ public class UserService {
     public Map<String,Object> createUser(UserRequest userRequest) {
         User user = userMapper.convertToModel(userRequest);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        userRepository.save(user);
+
         Map<String,Object> data = new LinkedHashMap<>();
         data.put("userId", user.getUserId());
         data.put("persona", user.getUserType());
         data.put("isVerified", user.getEmailVerified());
 
         //send email notification (otp)
-        EmailRequest emailRequest = new EmailRequest();
-        emailRequest.setTo(userRequest.getEmail());
-        emailRequest.setSubject("EliteCoach Account Verification");
-        emailRequest.setBody("Verify your EliteCoach Account, Your OTP Is: ".concat(notificationService.generateOTP()));
-        notificationService.sendOTPViaEmail(emailRequest);
+        ChannelRequest channelRequest = new ChannelRequest();
+        channelRequest.setChannel("email");
+        channelRequest.setTo(userRequest.getEmail());
+        channelRequest.setSubject("EliteCoach Account Verification");
+        channelRequest.setBody("Verify your EliteCoach Account, Your OTP Is: ".concat(notificationService.generateOTP()));
+        notificationService.sendOTP(channelRequest);
+
+        userRepository.save(user);
 
         return Map.of("message","User created successfully",
                 "status", "success","data",data);

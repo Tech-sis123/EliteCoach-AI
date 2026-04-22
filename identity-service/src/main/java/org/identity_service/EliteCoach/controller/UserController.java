@@ -3,7 +3,6 @@ package org.identity_service.EliteCoach.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import org.identity_service.EliteCoach.dto.UserRequest;
 import org.identity_service.EliteCoach.model.User;
-import org.identity_service.EliteCoach.request.NotifyRequest;
 import org.identity_service.EliteCoach.service.JwtService;
 import org.identity_service.EliteCoach.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;

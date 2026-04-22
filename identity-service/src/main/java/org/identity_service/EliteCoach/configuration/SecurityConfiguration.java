@@ -86,7 +86,7 @@ public class SecurityConfiguration {
                     authResponse(accessToken.get("accessToken").toString(), accessToken.get("expiry"),
                             refreshToken.get("refreshToken").toString(), refreshToken.get("expiry"),
                             userPrincipal.getUser().getUserId(),userPrincipal.getUser().getFirstName().concat(" ").concat(userPrincipal.getUser().getLastName()),
-                            userPrincipal.getUser().getUserType().toString(),userPrincipal.getUser().getUserId());
+                            userPrincipal.getUser().getUserType().toString());
 
             response.getWriter().write(objectMapper.writeValueAsString(data_response));
         }));
@@ -132,15 +132,14 @@ public class SecurityConfiguration {
 
     public Map<String,Object> authResponse(String accessToken, Object aExpiresIn,
                                            String refreshToken, Object rExpiresIn, UUID userId, String fullname,
-                                           String persona, UUID organizationId) {
+                                           String persona) {
         return Map.of("status", "success",
                 "accessToken", accessToken,
                 "accessToken_expiresIn", aExpiresIn,
                 "refreshToken", refreshToken,
                 "refreshToken_expiresIn", rExpiresIn,
                     "data", Map.of("userId", userId, "fullname", fullname,
-                        "persona", persona,
-                        "organizationId", organizationId));
+                        "persona", persona));
 
     }
 }
