@@ -86,7 +86,7 @@ public class SecurityConfiguration {
                     authResponse(accessToken.get("accessToken").toString(), accessToken.get("expiry"),
                             refreshToken.get("refreshToken").toString(), refreshToken.get("expiry"),
                             userPrincipal.getUser().getUserId(),userPrincipal.getUser().getFirstName().concat(" ").concat(userPrincipal.getUser().getLastName()),
-                            userPrincipal.getUser().getUserType().toString(),userPrincipal.getUser().getOrganizationId());
+                            userPrincipal.getUser().getUserType().toString(),userPrincipal.getUser().getUserId());
 
             response.getWriter().write(objectMapper.writeValueAsString(data_response));
         }));

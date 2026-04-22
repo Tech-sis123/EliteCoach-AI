@@ -35,18 +35,12 @@ public class User {
     @Column(name = "password_hash", nullable = false)
     private String password;
 
-    @Column(nullable = false)
-    private String salt; // Used for extra hashing security
-
     private String firstName;
     private String lastName;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserType userType;
-
-    @Column(name = "organization_id")
-    private UUID organizationId; // Foreign key to organizations.orgs
 
     @Enumerated(EnumType.STRING)
     private UserStatus status = UserStatus.active;

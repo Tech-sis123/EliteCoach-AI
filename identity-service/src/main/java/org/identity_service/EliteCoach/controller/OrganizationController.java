@@ -28,7 +28,11 @@ public class OrganizationController {
 
     @PostMapping
     public ResponseEntity<OrganizationDTOs.CreateOrgResponse> createOrganization(@RequestBody OrganizationDTOs.CreateOrgRequest request, HttpServletRequest servletRequest) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(orgService.createOrg(request));
+        String adminEmail = fetchPrincipalEmail(servletRequest);
+        if (adminEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(orgService.createOrg(request,adminEmail));
     }
 
     @GetMapping("/{organizationId}")

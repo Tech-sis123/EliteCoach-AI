@@ -63,6 +63,10 @@ public class UserService {
         return userRepository.findByEmail(email).map(userMapper::convertToRequest).orElseThrow(() -> new RuntimeException("User not found"));
     }
 
+    public User getUser(String email) {
+        return userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
     public void updateUserVerification(String email) {
         User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User account dont exists"));
         user.setEmailVerified(true);

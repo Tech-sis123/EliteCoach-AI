@@ -32,6 +32,8 @@ public class Organization {
     @Column(name = "admin_user_id", nullable = false)
     private UUID adminUserId;
 
+    private int maxLearners;
+
     @Column(name = "ndpr_dpa_signed")
     private Boolean ndprDpaSigned = false;
 

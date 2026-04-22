@@ -4,9 +4,13 @@ import com.opencsv.CSVReader;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.identity_service.EliteCoach.dto.OrganizationDTOs;
+import org.identity_service.EliteCoach.dto.UserRequest;
 import org.identity_service.EliteCoach.model.Organization;
+import org.identity_service.EliteCoach.model.PlanTier;
+import org.identity_service.EliteCoach.model.User;
 import org.identity_service.EliteCoach.repository.OrganizationRepository;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -21,22 +25,18 @@ import java.util.*;
 public class OrganizationService {
 
     private final OrganizationRepository orgRepo;
+    @Autowired
+    private UserService userService;
     // Inject LearnerRepository, CourseRepository, etc.
 
-    public OrganizationDTOs.CreateOrgResponse createOrg(OrganizationDTOs.CreateOrgRequest req) {
-        // Logic to determine maxLearners based on planTier
-        int maxLearners = switch (req.getPlanTier().toLowerCase()) {
-            case "starter" -> 50;
-            case "growth" -> 250;
-            case "enterprise" -> 1000;
-            default -> 10000; // Institutional
-        };
-
+    public OrganizationDTOs.CreateOrgResponse createOrg(OrganizationDTOs.CreateOrgRequest req, String adminEmail) {
         // Save to DB and return response
+        Organization organization =  createOrganization(req,adminEmail);
+
         return OrganizationDTOs.CreateOrgResponse.builder()
-                .organizationId(UUID.randomUUID()) // Replace with saved entity ID
-                .planTier(req.getPlanTier())
-                .maxLearners(maxLearners)
+                .organizationId(organization.getId()) // Replace with saved entity ID
+                .planTier(organization.getPlanTier().name())
+                .maxLearners(organization.getMaxLearners())
                 .createdAt(LocalDateTime.now())
                 .build();
     }
@@ -99,7 +99,7 @@ public class OrganizationService {
         return OrganizationDTOs.OrgDetailsResponse.builder()
                 .organizationId(org.getId())
                 .name(org.getName())
-                .maxLearners(0) // You would typically fetch this from the learning service
+                .maxLearners(org.getMaxLearners()) // You would typically fetch this from the learning service
                 // These would typically come from related repositories or counts
                 .activeLearnersCount(0)
                 .courses(new ArrayList<>()) // Replace with actual course mapping logic
@@ -150,5 +150,28 @@ public class OrganizationService {
         response.put("reportUrl", "https://s3.amazonaws.com/elite-coach-reports/compliance-" + UUID.randomUUID() + ".pdf");
 
         return response;
+    }
+
+    public Organization createOrganization(OrganizationDTOs.CreateOrgRequest req, String adminEmail) {
+        User user = userService.getUser(adminEmail);
+        int maxLearners = switch (req.getPlanTier().toLowerCase()) {
+            case "starter" -> 50;
+            case "growth" -> 250;
+            case "enterprise" -> 1000;
+            default -> 10000; // Institutional
+        };
+
+        Organization org = new Organization();
+        org.setName(req.getName());
+        org.setIndustry(req.getIndustry());
+        org.setCountry(req.getCountry());
+        org.setWebsite(req.getWebsite());
+        org.setMaxLearners(maxLearners);
+        org.setPlanTier(PlanTier.valueOf(req.getPlanTier()));
+        org.setAdminUserId(user.getUserId());
+
+        orgRepo.save(org);
+
+        return org;
     }
 }
