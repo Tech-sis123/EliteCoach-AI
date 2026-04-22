@@ -35,7 +35,7 @@ springdoc:
     tagsSorter: alpha
 
 NOTIFICATION-SERVICE:
-  BASE_URL: http://notification-service:8081
+  BASE_URL: https://elitecoach-ai-1.onrender.com
 
 server:
-  port=8083
+  port: 8083
