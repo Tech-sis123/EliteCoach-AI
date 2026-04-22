@@ -1,33 +1,21 @@
-# Stage 1: Build dependencies
-FROM python:3.10-slim as builder
-
-WORKDIR /app
-
-# Install build dependencies for C-extensions (like psycopg2 or uvloop)
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
-
-
-# Stage 2: Final Runtime
+# Use Python 3.10 slim image
 FROM python:3.10-slim
 
 WORKDIR /app
 
-# Install runtime-only dependencies (Postgres client and shared libraries needed for psycopg2)
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
     postgresql-client \
     libpq5 \
-    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy installed packages from the builder stage
-COPY --from=builder /install /usr/local
+# Copy requirements first
+COPY requirements.txt .
+
+# Install Python dependencies directly to system Python
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the actual application code
 COPY . .
@@ -36,10 +24,8 @@ COPY . .
 RUN useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Expose the port (Render uses this as documentation)
+# Expose the port
 EXPOSE 8000
 
-# Start the application
-# We use 'sh -c' so that the $PORT and PYTHONPATH environment variables 
-# are correctly injected into the uvicorn command.
-CMD ["sh", "-c", "PYTHONPATH=/app uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Set Python path and start the application
+CMD ["sh", "-c", "PYTHONPATH=/app python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
