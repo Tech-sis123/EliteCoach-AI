@@ -53,4 +53,9 @@ public class AuthController {
         jwtService.addTokenToBlackList(accessTokenRequest.getAccessToken());
         return ResponseEntity.ok().body(Map.of("message","logout successful"));
     }
+
+    @GetMapping("/ping")
+    public String ping() {
+        return "alive";
+    }
 }
