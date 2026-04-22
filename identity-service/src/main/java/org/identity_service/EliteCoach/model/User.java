@@ -57,5 +57,6 @@ public class User {
     @CreationTimestamp
     private LocalDateTime createdAt;
 
-    // Standard Getters/Setters
+    @Version
+    private Long version;
 }
