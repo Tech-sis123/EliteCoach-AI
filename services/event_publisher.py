@@ -4,6 +4,7 @@ import logging
 from typing import Dict, Any, Optional
 from datetime import datetime
 import asyncio
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -17,10 +18,11 @@ class EventPublisher:
         self.exchange: Optional[aio_pika.Exchange] = None
         self.is_connected = False
     
-    async def connect(self, rabbitmq_url: str = "amqp://guest:guest@localhost/"):
+    async def connect(self, rabbitmq_url: str = None):
         """Establish connection to RabbitMQ"""
+        url = rabbitmq_url or settings.RABBITMQ_URL
         try:
-            self.connection = await aio_pika.connect_robust(rabbitmq_url)
+            self.connection = await aio_pika.connect_robust(url)
             self.channel = await self.connection.channel()
             
             # Declare exchange for events
