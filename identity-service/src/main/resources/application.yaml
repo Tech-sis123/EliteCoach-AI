@@ -1,11 +1,7 @@
 spring:
   application:
     name: IdentityService
-  rabbitmq:
-    host: ${RABBITMQ_HOST}
-    port: 8883
-    username: ${RABBITMQ_USER}
-    password: ${RABBITMQ_PASSWORD}
+
 
   datasource:
     url: jdbc:mysql://${DB_HOST}:${DB_PORT}/userDb?useSSL=false

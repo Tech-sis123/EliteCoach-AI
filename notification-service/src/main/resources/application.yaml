@@ -32,22 +32,6 @@ spring:
                 writetimeout: 5000
 
 
-  rabbitmq:
-    host: ${RABBITMQ_HOST:localhost}
-    port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USER:guest}
-    password: ${RABBITMQ_PASSWORD:guest}
-    ssl:
-        enabled: true
-    listener:
-      simple:
-        retry:
-          enabled: true
-          initial-interval: 3s
-          max-attempts: 3
-        acknowledge-mode: auto
-
-
 # 4. Internal Microservice URLs
 services:
   identity-service:
@@ -68,3 +52,5 @@ INTERSWITCH:
   GENERAL_CLIENT_ID: ${INTERSWITCH_GENERAL_CLIENT_ID:hello}
   GENERAL_CLIENT_SECRET: ${INTERSWITCH_GENERAL_CLIENT_SECRET:hello}
 
+rabbitmq:
+  uri: ${RABBITMQ_URL}
