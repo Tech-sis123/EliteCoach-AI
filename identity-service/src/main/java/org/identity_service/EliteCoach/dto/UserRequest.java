@@ -22,7 +22,5 @@ public class UserRequest {
     @Email
     private String email;
     private UserType userType;
-    private UUID organizationId;
-
 
 }

@@ -1,8 +1,11 @@
 package org.identity_service.EliteCoach.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.identity_service.EliteCoach.dto.OrganizationDTOs;
+import org.identity_service.EliteCoach.service.JwtService;
 import org.identity_service.EliteCoach.service.OrganizationService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -20,8 +23,11 @@ public class OrganizationController {
 
     private final OrganizationService orgService;
 
+    @Autowired
+    private JwtService jwtService;
+
     @PostMapping
-    public ResponseEntity<OrganizationDTOs.CreateOrgResponse> createOrganization(@RequestBody OrganizationDTOs.CreateOrgRequest request) {
+    public ResponseEntity<OrganizationDTOs.CreateOrgResponse> createOrganization(@RequestBody OrganizationDTOs.CreateOrgRequest request, HttpServletRequest servletRequest) {
         return ResponseEntity.status(HttpStatus.CREATED).body(orgService.createOrg(request));
     }
 
@@ -61,5 +67,15 @@ public class OrganizationController {
     @GetMapping("/{organizationId}/reports/compliance")
     public ResponseEntity<Map<String, Object>> getComplianceReport(@PathVariable UUID organizationId) {
         return ResponseEntity.ok(orgService.generateComplianceReport(organizationId));
+    }
+
+    public String fetchPrincipalEmail(HttpServletRequest servletRequest) {
+        String header = servletRequest.getHeader("Authorization");
+        String email = null;
+        if(header != null) {
+            String token = header.substring(7);
+            email = jwtService.extractEmail(token);
+        }
+        return email;
     }
 }

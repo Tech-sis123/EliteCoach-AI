@@ -101,7 +101,7 @@ public class SecurityConfiguration {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(List.of("*"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "DELTE", "PUT"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "DELETE", "PUT"));
         configuration.setAllowCredentials(true);
         configuration.setAllowedHeaders(List.of("*"));
 
@@ -120,7 +120,9 @@ public class SecurityConfiguration {
     public SecurityFilterChain filterChain(HttpSecurity httpSecurity, AuthenticationManager authenticationManager) {
         return httpSecurity.cors(cors -> corsConfigurationSource())
                 .csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(requests -> requests.requestMatchers(publicUrls)
+                .authorizeHttpRequests(requests -> requests.
+                        requestMatchers("/api/v1/organizations/**").hasAnyRole("org_admin", "super_admin").
+                        requestMatchers(publicUrls)
                         .permitAll().anyRequest().authenticated())
                 .addFilterAt(authFilter(authenticationManager), UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(jwtFilter, UsernamePasswordAuthenticationFilter.class)
