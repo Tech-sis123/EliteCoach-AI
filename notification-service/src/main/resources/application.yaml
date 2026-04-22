@@ -2,7 +2,7 @@ spring:
   application:
     name: notification-service
   datasource:
-    url: jdbc:mysql://${DB_HOST}:${DB_PORT}/notificationDb?useSSL=false
+    url: jdbc:mysql://${DB_HOST}:${DB_PORT}/notificationDb?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: ${DB_USER}
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver

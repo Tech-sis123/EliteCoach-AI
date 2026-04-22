@@ -32,7 +32,7 @@ import io.swagger.v3.oas.annotations.servers.Server;
                         description = "Local development server"
                 ),
                 @Server(
-                        url = "https://elitecoach.onrender.com",
+                        url = "https://elitecoach-ai-oxax.onrender.com",
                         description = "Production development server"
                 )
         }
