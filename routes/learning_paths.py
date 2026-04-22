@@ -3,14 +3,15 @@ from sqlalchemy.orm import Session
 import logging
 
 from core.database import get_db
-from core.security import get_current_learner
+from core.security import get_current_learner, security
 from services.ai_tutor import ai_tutor_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/api/v1/learning",
-    tags=["learning-paths"]
+    tags=["learning-paths"],
+    dependencies=[Depends(security)]
 )
 
 

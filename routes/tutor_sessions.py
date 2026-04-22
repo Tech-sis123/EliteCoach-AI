@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional
 
 from core.database import get_db
-from core.security import get_current_learner
+from core.security import get_current_learner, security
 from schemas.schemas import TutorSessionResponse, TutorChat
 from models.models import TutorSession
 from services.rag_engine import rag_engine
@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/api/v1/learning",
-    tags=["tutor-sessions"]
+    tags=["tutor-sessions"],
+    dependencies=[Depends(security)]
 )
 
 
@@ -34,7 +35,8 @@ async def start_tutor_session(
     try:
         # Get current user from identity service
         current_user = await get_current_learner(request)
-        user_id = current_user.get('id') or current_user.get('userId')
+        # Fallback to email if id/userId is missing
+        user_id = str(current_user.get('id') or current_user.get('userId') or current_user.get('email'))
         
         # Create new session
         session = TutorSession(
@@ -77,11 +79,16 @@ async def start_tutor_session(
             "status": "active"
         }
     
+    except HTTPException:
+        # Re-raise HTTP exceptions so the specific status code/detail is preserved
+        raise
     except Exception as e:
-        logger.error(f"Error starting session: {str(e)}")
+        import traceback
+        error_details = traceback.format_exc()
+        logger.error(f"Error starting session: {error_details}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to start tutoring session"
+            detail=f"Failed to start tutoring session: {str(e)}"
         )
 
 
@@ -97,12 +104,22 @@ async def send_message_to_tutor(
     try:
         # Get current user
         current_user = await get_current_learner(request)
-        user_id = current_user.get('id') or current_user.get('userId')
+        # Fallback to email if id/userId is missing
+        user_id = str(current_user.get('id') or current_user.get('userId') or current_user.get('email'))
+        email = current_user.get('email')
         
+        logger.info(f"DEBUG: Looking for session {session_id} for user_id: '{user_id}' (Email: {email})")
+        
+        # Log all sessions for this user to debug
+        all_user_sessions = db.query(TutorSession).filter(TutorSession.user_id == user_id).all()
+        logger.info(f"DEBUG: Found {len(all_user_sessions)} total sessions in DB for this user_id")
+        for s in all_user_sessions:
+            logger.info(f"DEBUG: Existing Session in DB - ID: {s.id}, UserID: '{s.user_id}', Topic: {s.topic}")
+
         # Get session
         session = db.query(TutorSession).filter(
             TutorSession.id == session_id,
-            TutorSession.user_id == str(user_id)
+            TutorSession.user_id == user_id
         ).first()
         
         if not session:
@@ -188,14 +205,16 @@ async def get_session(
     
     try:
         current_user = await get_current_learner(request)
-        user_id = current_user.get('id') or current_user.get('userId')
+        # Fallback to email if id/userId is missing
+        user_id = str(current_user.get('id') or current_user.get('userId') or current_user.get('email'))
         
         session = db.query(TutorSession).filter(
             TutorSession.id == session_id,
-            TutorSession.user_id == str(user_id)
+            TutorSession.user_id == user_id
         ).first()
         
         if not session:
+            logger.info(f"Session {session_id} not found for user {user_id}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Session not found"
@@ -234,11 +253,12 @@ async def end_tutor_session(
     
     try:
         current_user = await get_current_learner(request)
-        user_id = current_user.get('id') or current_user.get('userId')
+        # Fallback to email if id/userId is missing
+        user_id = str(current_user.get('id') or current_user.get('userId') or current_user.get('email'))
         
         session = db.query(TutorSession).filter(
             TutorSession.id == session_id,
-            TutorSession.user_id == str(user_id)
+            TutorSession.user_id == user_id
         ).first()
         
         if not session:
@@ -307,11 +327,15 @@ async def list_sessions(
     
     try:
         current_user = await get_current_learner(request)
-        user_id = current_user.get('id') or current_user.get('userId')
+        # Fallback to email if id/userId is missing
+        user_id = str(current_user.get('id') or current_user.get('userId') or current_user.get('email'))
         
-        sessions = db.query(TutorSession).filter(
-            TutorSession.user_id == str(user_id)
-        ).offset(skip).limit(limit).all()
+        sessions_query = db.query(TutorSession).filter(
+            TutorSession.user_id == user_id
+        )
+        
+        total_count = sessions_query.count()
+        sessions = sessions_query.offset(skip).limit(limit).all()
         
         return {
             "sessions": [
@@ -325,7 +349,7 @@ async def list_sessions(
                 }
                 for s in sessions
             ],
-            "total": len(sessions)
+            "total": total_count
         }
     
     except Exception as e:

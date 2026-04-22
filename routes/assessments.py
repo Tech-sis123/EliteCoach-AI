@@ -3,16 +3,18 @@ from sqlalchemy.orm import Session
 import logging
 import json
 
-from core.database import get_db
-from core.security import get_current_learner
-from models.models import Assessment
-from services.ai_tutor import ai_tutor_service
-
 logger = logging.getLogger(__name__)
+
+from core.database import get_db
+from core.security import get_current_learner, security
+from models.models import Assessment
+from schemas.schemas import AssessmentSubmission
+from services.ai_tutor import ai_tutor_service
 
 router = APIRouter(
     prefix="/api/v1/assessments",
-    tags=["assessments"]
+    tags=["assessments"],
+    dependencies=[Depends(security)]
 )
 
 
@@ -58,23 +60,23 @@ async def generate_quiz(
 @router.post("/submit")
 async def submit_assessment(
     request: Request,
-    assessment_data: dict,
+    submission: AssessmentSubmission,
     db: Session = Depends(get_db)
 ):
     """Submit assessment answers for grading"""
     
     try:
         current_user = await get_current_learner(request)
-        user_id = current_user.get('id') or current_user.get('userId')
+        user_id = str(current_user.get('id') or current_user.get('userId') or current_user.get('email'))
         
         # Create assessment record
         assessment = Assessment(
-            student_id=str(user_id),
-            course_id=assessment_data.get('course_id'),
-            questions=json.dumps(assessment_data.get('questions', [])),
-            answers=json.dumps(assessment_data.get('answers', [])),
+            student_id=user_id,
+            course_id=submission.course_id,
+            questions=json.dumps(submission.questions),
+            answers=json.dumps(submission.answers),
             score=0.0,
-            total_questions=len(assessment_data.get('answers', []))
+            total_questions=len(submission.answers)
         )
         
         db.add(assessment)
@@ -108,11 +110,11 @@ async def get_assessment_results(
     
     try:
         current_user = await get_current_learner(request)
-        user_id = current_user.get('id') or current_user.get('userId')
+        user_id = str(current_user.get('id') or current_user.get('userId') or current_user.get('email'))
         
         assessment = db.query(Assessment).filter(
             Assessment.id == assessment_id,
-            Assessment.student_id == str(user_id)
+            Assessment.student_id == user_id
         ).first()
         
         if not assessment:

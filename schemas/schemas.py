@@ -150,6 +150,12 @@ class AssessmentResponse(AssessmentCreate):
         from_attributes = True
 
 
+class AssessmentSubmission(BaseModel):
+    course_id: int
+    questions: List[dict]
+    answers: List[dict]
+
+
 # AI Tutor Session Schemas
 class TutorSessionCreate(BaseModel):
     user_id: str

@@ -1,10 +1,11 @@
 import os
 import logging
 from typing import List, Dict, Optional, Any
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage, AIMessage, SystemMessage
 import json
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +14,7 @@ class RAGTutorEngine:
     """RAG (Retrieval-Augmented Generation) Pipeline for AI Tutor"""
     
     def __init__(self):
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
+        self.openai_api_key = settings.OPENAI_API_KEY
         self.embeddings = None
         self.model = None
         

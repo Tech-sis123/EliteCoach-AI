@@ -27,13 +27,25 @@ class EventPublisher:
             
             # Declare exchange for events
             self.exchange = await self.channel.declare_exchange(
-                name="elite-coach-events",
+                name=settings.RABBITMQ_EXCHANGE,
                 type=aio_pika.ExchangeType.TOPIC,
                 durable=True
             )
+
+            # Optional: Declare and bind a queue if this service also needs to listen
+            self.queue = await self.channel.declare_queue(
+                name=settings.RABBITMQ_QUEUE,
+                durable=True
+            )
+            
+            # Bind queue to exchange (using a pattern, e.g., 'learner.#')
+            await self.queue.bind(
+                self.exchange, 
+                routing_key=f"{settings.RABBITMQ_ROUTING_KEY_PREFIX}.#"
+            )
             
             self.is_connected = True
-            logger.info("Connected to RabbitMQ")
+            logger.info(f"Connected to RabbitMQ. Exchange: {settings.RABBITMQ_EXCHANGE}")
         
         except Exception as e:
             logger.error(f"Failed to connect to RabbitMQ: {str(e)}")

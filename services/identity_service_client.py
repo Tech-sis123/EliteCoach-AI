@@ -16,38 +16,32 @@ class IdentityServiceClient:
     async def get_user_profile(self, token: str) -> Optional[Dict[str, Any]]:
         """Get user profile from identity service"""
         headers = {"Authorization": f"Bearer {token}"}
+        url = f"{self.base_url}/api/v1/users/profile"
+        
+        logger.info(f"Calling Identity Service at: {url}")
         
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.get(
-                    f"{self.base_url}/api/v1/users/profile",
+                    url,
                     headers=headers
                 )
+                
+                logger.info(f"Identity Service responded with status: {response.status_code}")
                 
                 if response.status_code == 200:
-                    return response.json()
+                    user_data = response.json()
+                    logger.debug(f"User profile retrieved successfully for token")
+                    return user_data
                 else:
-                    logger.error(f"Failed to get user profile: {response.status_code}")
+                    logger.error(f"Failed to get user profile. Status: {response.status_code}, Body: {response.text}")
                     return None
-        except Exception as e:
-            logger.error(f"Error calling identity service: {str(e)}")
+        except httpx.RequestError as e:
+            logger.error(f"Network error calling identity service at {url}: {str(e)}")
             return None
-    
-    async def verify_token(self, token: str) -> bool:
-        """Verify token with identity service"""
-        headers = {"Authorization": f"Bearer {token}"}
-        
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(
-                    f"{self.base_url}/api/v1/auth/verify-token",
-                    headers=headers
-                )
-                
-                return response.status_code == 200
         except Exception as e:
-            logger.error(f"Error verifying token: {str(e)}")
-            return False
+            logger.error(f"Unexpected error calling identity service: {str(e)}")
+            return None
     
     async def extract_email_from_token(self, token: str) -> Optional[str]:
         """Extract email from token (can be done locally or with service)"""

@@ -38,6 +38,10 @@ app.include_router(tutor_sessions.router)
 app.include_router(learning_paths.router)
 app.include_router(assessments.router)
 
+@app.get("/ping")
+def ping():
+    return {"status": "alive"}
+
 # Startup event
 @app.on_event("startup")
 async def startup_event():

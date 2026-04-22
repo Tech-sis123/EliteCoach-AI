@@ -34,24 +34,17 @@ async def get_current_user(request: Request) -> dict:
             detail="Invalid authorization header"
         )
     
-    # Verify token with identity service
-    is_valid = await identity_service.verify_token(token)
+    # Get user profile from identity service (this validates the token)
+    user = await identity_service.get_user_profile(token)
     
-    if not is_valid:
+    if not user:
+        logger.warning(f"Authentication failed: Identity service returned no user for token")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token"
         )
     
-    # Get user profile from identity service
-    user = await identity_service.get_user_profile(token)
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not retrieve user profile"
-        )
-    
+    logger.info(f"User authenticated: {user.get('email')} with role: {user.get('role')}")
     return user
 
 
@@ -59,11 +52,13 @@ async def get_current_learner(request: Request) -> dict:
     """Get current user and verify they are a learner"""
     user = await get_current_user(request)
     
-    # Check if user role is learner
-    if user.get("role") not in ["learner", "org_admin", "super_admin"]:
+    # Check if user role/type is learner
+    role = user.get("userType") or user.get("role")
+    if role not in ["learner", "org_admin", "super_admin"]:
+        logger.warning(f"Permission denied: User {user.get('email')} has insufficient role: {role}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only learners can access this resource"
+            detail=f"Only learners can access this resource (Current role: {role})"
         )
     
     return user
@@ -73,11 +68,12 @@ async def get_current_tutor(request: Request) -> dict:
     """Get current user and verify they are a tutor"""
     user = await get_current_user(request)
     
-    # Check if user role is tutor
-    if user.get("role") not in ["tutor", "org_admin", "super_admin"]:
+    # Check if user role/type is tutor
+    role = user.get("userType") or user.get("role")
+    if role not in ["tutor", "org_admin", "super_admin"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only tutors can access this resource"
+            detail=f"Only tutors can access this resource (Current role: {role})"
         )
     
     return user
@@ -87,11 +83,12 @@ async def get_current_admin(request: Request) -> dict:
     """Get current user and verify they are an admin"""
     user = await get_current_user(request)
     
-    # Check if user role is org_admin or super_admin
-    if user.get("role") not in ["org_admin", "super_admin"]:
+    # Check if user role/type is org_admin or super_admin
+    role = user.get("userType") or user.get("role")
+    if role not in ["org_admin", "super_admin"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
+            detail=f"Admin access required (Current role: {role})"
         )
     
     return user

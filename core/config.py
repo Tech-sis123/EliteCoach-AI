@@ -21,16 +21,19 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./tutor.db"
     
     # RabbitMQ
-    RABBITMQ_URL: str = "amqp://guest:guest@localhost/"
+    RABBITMQ_URL: str = "amqps://fgdhsoso:pryLIv09-J5eYzCw-NjWT41RJEBVQZds@seal.lmq.cloudamqp.com/fgdhsoso"
+    RABBITMQ_EXCHANGE: str = "elite-coach-events"
+    RABBITMQ_QUEUE: str = "notification-queue"
+    RABBITMQ_ROUTING_KEY_PREFIX: str = "learner.#"
     
     # OpenAI Configuration
     OPENAI_API_KEY: str = ""
     
     # Identity Service (Microservice)
-    IDENTITY_SERVICE_URL: str = "http://localhost:8001"
+    IDENTITY_SERVICE_URL: str = "http://localhost:8083"
     
     # JWT Settings (for local token validation if needed)
-    SECRET_KEY: str = "your-secret-key-change-in-production"
+    SECRET_KEY: str = "mysecret"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     

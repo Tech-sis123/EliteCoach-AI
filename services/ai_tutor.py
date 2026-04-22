@@ -1,10 +1,15 @@
 import openai
+from openai import OpenAI
 from core.config import settings
 from typing import Optional, List
 import json
+import logging
 
-# Configure OpenAI
-openai.api_key = settings.OPENAI_API_KEY
+# Initialize logger
+logger = logging.getLogger(__name__)
+
+# Initialize OpenAI Client
+client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
 
 class AITutorService:
@@ -31,7 +36,7 @@ Level: {level}
 Provide a clear, engaging explanation suitable for a {level} level student."""
         
         try:
-            response = openai.ChatCompletion.create(
+            response = client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": "You are an expert educational tutor. Provide clear, concise, and engaging explanations."},
@@ -69,7 +74,7 @@ Provide your evaluation in the following JSON format:
 }}"""
         
         try:
-            response = openai.ChatCompletion.create(
+            response = client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": "You are an expert educational AI that evaluates student answers fairly and constructively."},
@@ -126,10 +131,11 @@ Format your response as a JSON array with this structure:
 ]"""
         
         try:
-            response = openai.ChatCompletion.create(
+            logger.info(f"Generating quiz for topic: {topic}, level: {level}")
+            response = client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "You are an expert educator creating quality quiz questions."},
+                    {"role": "system", "content": "You are an expert educator creating quality quiz questions. Always return a valid JSON array of question objects."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7,
@@ -137,18 +143,25 @@ Format your response as a JSON array with this structure:
             )
             
             response_text = response.choices[0].message.content
+            logger.info(f"AI response received for quiz generation. Length: {len(response_text)}")
+            
             # Parse JSON from response
             try:
                 json_start = response_text.find('[')
                 json_end = response_text.rfind(']') + 1
                 if json_start != -1 and json_end > json_start:
                     json_str = response_text[json_start:json_end]
-                    return json.loads(json_str)
-            except:
-                pass
+                    questions = json.loads(json_str)
+                    logger.info(f"Successfully parsed {len(questions)} questions")
+                    return questions
+                else:
+                    logger.warning(f"No JSON array found in AI response: {response_text[:100]}...")
+            except Exception as parse_error:
+                logger.error(f"Failed to parse quiz JSON: {str(parse_error)}. Content: {response_text[:200]}")
             
             return []
         except Exception as e:
+            logger.error(f"Error in generate_quiz: {str(e)}")
             return []
     
     async def create_tutor_response(
@@ -179,7 +192,7 @@ Be warm, encouraging, and patient. Use simple language when explaining complex t
         messages.append({"role": "user", "content": user_message})
         
         try:
-            response = openai.ChatCompletion.create(
+            response = client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 temperature=0.7,
@@ -234,7 +247,7 @@ Provide a week-by-week breakdown with:
 - Assessment checkpoints"""
         
         try:
-            response = openai.ChatCompletion.create(
+            response = client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": "You are an expert curriculum designer."},
