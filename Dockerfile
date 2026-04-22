@@ -19,10 +19,11 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Install runtime-only dependencies (Postgres client and shared libraries)
+# Install runtime-only dependencies (Postgres client and shared libraries needed for psycopg2)
 RUN apt-get update && apt-get install -y \
     postgresql-client \
     libpq5 \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy installed packages from the builder stage
@@ -39,6 +40,6 @@ USER appuser
 EXPOSE 8000
 
 # Start the application
-# We use 'sh -c' so that the $PORT environment variable assigned by Render 
-# is correctly injected into the uvicorn command.
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# We use 'sh -c' so that the $PORT and PYTHONPATH environment variables 
+# are correctly injected into the uvicorn command.
+CMD ["sh", "-c", "PYTHONPATH=/app uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
