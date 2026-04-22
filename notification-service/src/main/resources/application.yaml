@@ -67,3 +67,12 @@ logging:
 INTERSWITCH:
   GENERAL_CLIENT_ID: ${INTERSWITCH_GENERAL_CLIENT_ID:hello}
   GENERAL_CLIENT_SECRET: ${INTERSWITCH_GENERAL_CLIENT_SECRET:hello}
+
+logging:
+  level:
+    org:
+      springframework:
+        amqp: INFO
+    com:
+      rabbitmq:
+        client: INFO
