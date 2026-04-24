@@ -41,9 +41,13 @@ public class AuthController {
        }
     }
 
-    @GetMapping("/refresh")
+    @PostMapping("/refresh")
     public ResponseEntity<Map<String,Object>> getNewAccessToken(@RequestBody @Valid RefreshTokenRequest refreshTokenRequest) {
         String email = jwtService.extractEmail(refreshTokenRequest.refreshToken());
+        if(Objects.isNull(email)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(Map.of("error", "Invalid or expired refresh token"));
+        }
         Map<String,Object> accessToken = jwtService.generateAccessToken(email);
         return ResponseEntity.ok().body(accessToken);
     }
