@@ -6,11 +6,13 @@ from services.identity_service_client import identity_service
 
 logger = logging.getLogger(__name__)
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(request: Request) -> dict:
     """Extract and validate user from JWT token"""
+    if request.method == "OPTIONS":
+        return {}
     
     # Get Authorization header
     authorization: str = request.headers.get("Authorization")
