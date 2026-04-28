@@ -48,6 +48,13 @@ async def startup_event():
     """Initialize services on startup"""
     logger.info("Starting AI Tutor Engine Service...")
     
+    # Seed database with essential records
+    try:
+        from seed_db import seed_database
+        seed_database()
+    except Exception as e:
+        logger.error(f"Failed to seed database: {e}")
+    
     # Connect to RabbitMQ
     from services.event_publisher import event_publisher
     try:
