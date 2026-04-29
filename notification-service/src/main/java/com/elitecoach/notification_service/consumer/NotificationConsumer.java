@@ -30,7 +30,7 @@ public class NotificationConsumer {
         String learnerId = (String) eventPayload.get("learner_id");
 
         // 1. Fetch User details (Phone/Email) from Identity Service using learnerId
-        // UserDTO user = identityClient.getUserById(learnerId);
+        //UserDTO user = identityClient.getUserById(learnerId);
 
         switch (eventType) {
             case "LEARNER_SESSION_COMPLETED":
