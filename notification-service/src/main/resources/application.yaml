@@ -56,5 +56,5 @@ rabbitmq:
   uri: ${RABBITMQ_URL}
 
 
-RESEND_API_KEY:
+RESEND:
   key: ${RESEND_API_KEY}
