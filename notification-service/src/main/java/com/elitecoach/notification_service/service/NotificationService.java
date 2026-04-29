@@ -47,7 +47,7 @@ public class NotificationService {
     @Autowired
     private NotificationMapper notificationMapper;
 
-    @Value("${RESEND_API_KEY}")
+    @Value("${RESEND_API_KEY.key}")
     private String apiKey;
 
 
