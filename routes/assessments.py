@@ -79,9 +79,17 @@ async def submit_assessment(
         # For simplicity, let's assume answers match the questions index or ID
         
         for i, q in enumerate(submission.questions):
+            # Safe indexing for answers
             student_ans = submission.answers[i] if i < len(submission.answers) else None
-            # Handle case where student_ans might be a dict {"id": "...", "answer": "..."}
-            actual_answer = student_ans.get("answer") if isinstance(student_ans, dict) else student_ans
+            
+            # Handle standard spec where answers list contains {question_id, answer} OR fallback to list of answers
+            if isinstance(student_ans, dict):
+                # Try to find the answer by matching the question ID
+                qid = str(q.get("id"))
+                specific_answer = next((a.get("answer") for a in submission.answers if str(a.get("question_id")) == qid), None)
+                actual_answer = specific_answer if specific_answer is not None else student_ans.get("answer")
+            else:
+                actual_answer = student_ans
             
             if q.get("correct_answer") == actual_answer:
                 correct_count += 1
@@ -108,12 +116,15 @@ async def submit_assessment(
         
         # If passed, trigger course completion event (which should trigger ACS for certificate)
         if passed:
-            await event_publisher.publish_learner_course_completed(
-                learner_id=user_id,
-                course_id=str(submission.course_id),
-                score=score,
-                time_taken_hours=1.0 # Placeholder
-            )
+            try:
+                await event_publisher.publish_learner_course_completed(
+                    learner_id=user_id,
+                    course_id=str(submission.course_id),
+                    score=score,
+                    time_taken_hours=1.0 # Placeholder
+                )
+            except Exception as publish_error:
+                logger.warning(f"Failed to publish course completion event: {str(publish_error)}. Proceeding with submission success.")
         
         return {
             "assessment_id": assessment.id,
