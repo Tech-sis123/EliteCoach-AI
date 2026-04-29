@@ -37,7 +37,7 @@ public class RabbitConnectionConfig {
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
         RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
         rabbitTemplate.setMessageConverter(jsonMessageConverter());
-        return new RabbitTemplate(connectionFactory);
+        return rabbitTemplate;
     }
 
     @Bean

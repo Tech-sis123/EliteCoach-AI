@@ -3,6 +3,7 @@ package com.elitecoach.notification_service.service;
 import com.elitecoach.notification_service.dto.NotificationRequest;
 import com.elitecoach.notification_service.mapper.NotificationMapper;
 import com.elitecoach.notification_service.model.Notification;
+import com.elitecoach.notification_service.producer.NotificationProducer;
 import com.elitecoach.notification_service.repsository.NotificationRepository;
 import com.elitecoach.notification_service.request.EmailRequest;
 import com.elitecoach.notification_service.request.UserRequest;
@@ -31,10 +32,6 @@ import java.util.Map;
 public class NotificationService {
 
     @Autowired
-    private JavaMailSender javaMailSender;
-    @Value("${spring.mail.username}")
-    private String fromEmail;
-    @Autowired
     private WebClient webClient;
     @Value("${INTERSWITCH.GENERAL_CLIENT_ID}")
     private String GENERAL_CLIENT_ID;
@@ -50,24 +47,11 @@ public class NotificationService {
     @Value("${RESEND.key}")
     private String apiKey;
 
+    @Autowired
+    private NotificationProducer notificationProducer;
 
     public void sendSimpleMail(EmailRequest emailRequest) {
-
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(emailRequest.getTo());
-            message.setFrom(fromEmail);
-            message.setSubject(emailRequest.getSubject());
-            message.setText(emailRequest.getBody());
-
-            javaMailSender.send(message);
-
-        } catch (MailException ex) {
-            // ✅ Only fallback for MAIL-related issues
-            log.error("SMTP failed, switching to Resend: {}", ex.getMessage());
-
-            sendWithResend(emailRequest);
-        }
+        notificationProducer.handleEmailNotification("email.send", emailRequest);
     }
 
     private void sendWithResend(EmailRequest emailRequest) {

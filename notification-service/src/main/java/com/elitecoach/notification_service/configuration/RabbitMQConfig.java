@@ -22,12 +22,28 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public Queue emailQueue() {
+        return new Queue("email-queue", true);
+    }
+
+
+    @Bean
     public TopicExchange exchange() {
         return new TopicExchange(EXCHANGE_NAME);
     }
 
     @Bean
-    public Binding binding(Queue queue, TopicExchange exchange) {
-        return BindingBuilder.bind(queue).to(exchange).with(ROUTING_PATTERN);
+    public TopicExchange emailExchange() {
+        return new TopicExchange("email-exchange");
+    }
+
+    @Bean
+    public Binding binding() {
+        return BindingBuilder.bind(notificationQueue()).to(exchange()).with(ROUTING_PATTERN);
+    }
+
+    @Bean
+    public Binding emailBinding() {
+        return BindingBuilder.bind(emailQueue()).to(emailExchange()).with("email.#");
     }
 }

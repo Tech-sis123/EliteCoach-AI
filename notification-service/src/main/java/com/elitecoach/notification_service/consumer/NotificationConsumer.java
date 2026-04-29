@@ -8,6 +8,10 @@ import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -19,6 +23,11 @@ public class NotificationConsumer {
 
     @Autowired
     private NotificationService notificationService;
+
+    @Autowired
+    private JavaMailSender javaMailSender;
+    @Value("${spring.mail.username}")
+    private String fromEmail;
     // Assume you have a FeignClient or RestTemplate to fetch User info from Identity Service
     // private final IdentityServiceClient identityClient;
 
@@ -64,5 +73,21 @@ public class NotificationConsumer {
                         .build();
 
         notificationService.sendSimpleMail(emailRequest);
+    }
+
+    @RabbitListener(queues = "#{emailQueue.name}")
+    public void sendNotificationEmail(EmailRequest emailRequest) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(emailRequest.getTo());
+            message.setFrom(fromEmail); // Ensure this is set in application.properties
+            message.setSubject(emailRequest.getSubject());
+            message.setText(emailRequest.getBody());
+
+            javaMailSender.send(message);
+        } catch (MailException ex) {
+            // ✅ Only fallback for MAIL-related issues
+            log.error("SMTP failed, switching to Resend: {}", ex.getMessage());
+        }
     }
 }

@@ -62,3 +62,4 @@ rabbitmq:
 
 RESEND:
   key: ${RESEND_API_KEY}
+
