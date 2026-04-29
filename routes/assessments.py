@@ -10,6 +10,7 @@ from core.security import get_current_learner, security
 from models.models import Assessment
 from schemas.schemas import AssessmentSubmission
 from services.ai_tutor import ai_tutor_service
+from services.event_publisher import event_publisher
 
 router = APIRouter(
     prefix="/api/v1/assessments",
@@ -69,27 +70,60 @@ async def submit_assessment(
         current_user = await get_current_learner(request)
         user_id = str(current_user.get('id') or current_user.get('userId') or current_user.get('email'))
         
+        # Simple grading logic
+        correct_count = 0
+        total_questions = len(submission.questions)
+        
+        # submission.answers is expected to be a list of strings or dicts matching questions
+        # Frontend usually sends { question_id: answer } or just a list of answers
+        # For simplicity, let's assume answers match the questions index or ID
+        
+        for i, q in enumerate(submission.questions):
+            student_ans = submission.answers[i] if i < len(submission.answers) else None
+            # Handle case where student_ans might be a dict {"id": "...", "answer": "..."}
+            actual_answer = student_ans.get("answer") if isinstance(student_ans, dict) else student_ans
+            
+            if q.get("correct_answer") == actual_answer:
+                correct_count += 1
+        
+        score = (correct_count / total_questions * 100) if total_questions > 0 else 0
+        passed = score >= 70
+        
         # Create assessment record
         assessment = Assessment(
             student_id=user_id,
             course_id=submission.course_id,
             questions=json.dumps(submission.questions),
             answers=json.dumps(submission.answers),
-            score=0.0,
-            total_questions=len(submission.answers)
+            score=score,
+            total_questions=total_questions,
+            ai_feedback=f"You got {correct_count} out of {total_questions} correct."
         )
         
         db.add(assessment)
         db.commit()
         db.refresh(assessment)
         
-        logger.info(f"Assessment {assessment.id} submitted for user {user_id}")
+        logger.info(f"Assessment {assessment.id} graded. Score: {score} for user {user_id}")
+        
+        # If passed, trigger course completion event (which should trigger ACS for certificate)
+        if passed:
+            await event_publisher.publish_learner_course_completed(
+                learner_id=user_id,
+                course_id=str(submission.course_id),
+                score=score,
+                time_taken_hours=1.0 # Placeholder
+            )
         
         return {
             "assessment_id": assessment.id,
             "submitted_at": assessment.created_at,
-            "status": "submitted",
-            "next_step": "We're grading your assessment..."
+            "status": "completed",
+            "score": score,
+            "passed": passed,
+            "total_questions": total_questions,
+            "correct_answers": correct_count,
+            "next_step": "Certificate generated" if passed else "Try again to earn your certificate"
         }
     
     except Exception as e:

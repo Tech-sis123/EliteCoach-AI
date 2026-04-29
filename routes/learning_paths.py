@@ -49,10 +49,12 @@ async def generate_learning_path(
         }
     
     except Exception as e:
-        logger.error(f"Error generating learning path: {str(e)}")
+        import traceback
+        error_details = traceback.format_exc()
+        logger.error(f"Error generating learning path: {error_details}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate learning path"
+            detail=f"Failed to generate learning path: {str(e)}"
         )
 
 
@@ -66,9 +68,10 @@ async def get_learning_path(
     
     try:
         current_user = await get_current_learner(request)
+        current_user_id = current_user.get('id') or current_user.get('userId')
         
         # Verify user can only access their own path
-        if current_user.get('id') != user_id:
+        if current_user_id != user_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Cannot access other user's learning path"
@@ -123,8 +126,9 @@ async def update_learning_path(
     
     try:
         current_user = await get_current_learner(request)
+        current_user_id = current_user.get('id') or current_user.get('userId')
         
-        if current_user.get('id') != user_id:
+        if current_user_id != user_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Cannot modify other user's learning path"

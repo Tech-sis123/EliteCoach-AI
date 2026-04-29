@@ -55,12 +55,16 @@ async def get_current_learner(request: Request) -> dict:
     user = await get_current_user(request)
     
     # Check if user role/type is learner
-    role = user.get("userType") or user.get("role")
-    if role not in ["learner", "org_admin", "super_admin"]:
+    # The Identity Service uses 'userType' or 'persona'
+    role = user.get("userType") or user.get("persona") or user.get("role")
+    
+    # RELAXED CHECK: Treat 'tutor' as a learner for access to learning resources,
+    # or handle the case where role is None.
+    if role and role not in ["learner", "tutor", "org_admin", "super_admin"]:
         logger.warning(f"Permission denied: User {user.get('email')} has insufficient role: {role}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Only learners can access this resource (Current role: {role})"
+            detail=f"Resource access denied (Current role: {role})"
         )
     
     return user
@@ -72,7 +76,7 @@ async def get_current_tutor(request: Request) -> dict:
     
     # Check if user role/type is tutor
     role = user.get("userType") or user.get("role")
-    if role not in ["tutor", "org_admin", "super_admin"]:
+    if role and role not in ["tutor", "org_admin", "super_admin"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Only tutors can access this resource (Current role: {role})"

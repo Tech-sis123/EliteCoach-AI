@@ -353,8 +353,10 @@ async def list_sessions(
         }
     
     except Exception as e:
-        logger.error(f"Error listing sessions: {str(e)}")
+        import traceback
+        error_details = traceback.format_exc()
+        logger.error(f"Error listing sessions: {error_details}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to list sessions"
+            detail=f"Failed to list sessions: {str(e)}"
         )
