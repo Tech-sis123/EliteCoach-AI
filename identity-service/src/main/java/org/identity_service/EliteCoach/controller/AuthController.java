@@ -9,7 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import java.util.*;
 import java.util.Map;
 
 @RestController
@@ -41,9 +41,13 @@ public class AuthController {
        }
     }
 
-    @GetMapping("/refresh")
+    @PostMapping("/refresh")
     public ResponseEntity<Map<String,Object>> getNewAccessToken(@RequestBody @Valid RefreshTokenRequest refreshTokenRequest) {
         String email = jwtService.extractEmail(refreshTokenRequest.refreshToken());
+        if(Objects.isNull(email)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(Map.of("error", "Invalid or expired refresh token"));
+        }
         Map<String,Object> accessToken = jwtService.generateAccessToken(email);
         return ResponseEntity.ok().body(accessToken);
     }
