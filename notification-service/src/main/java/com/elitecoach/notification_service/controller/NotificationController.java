@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@CrossOrigin(origins = "https://elite-coach-seven.vercel.app")
+@CrossOrigin(origins = {"https://elite-coach-seven.vercel.app", "http://localhost:8080"})
 @RequestMapping("/api/v1/notification")
 public class NotificationController {
 
