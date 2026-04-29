@@ -147,3 +147,17 @@ class TutorSession(Base):
     duration_minutes = Column(Integer)
     created_at = Column(DateTime, default=datetime.utcnow)
     ended_at = Column(DateTime, nullable=True)
+
+
+class LearningPath(Base):
+    """Learning Path model to persist user career goals and roadmaps"""
+    __tablename__ = "learning_paths"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, index=True, unique=True)  # UUID from identity service
+    target_role = Column(String)
+    study_plan = Column(Text)  # Detailed AI-generated plan
+    time_per_week = Column(Integer, default=5)
+    progress = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

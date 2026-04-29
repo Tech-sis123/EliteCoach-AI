@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 import logging
+import json
 
 from core.database import get_db
 from core.security import get_current_learner, security
 from services.ai_tutor import ai_tutor_service
+from models.models import LearningPath
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +29,7 @@ async def generate_learning_path(
     
     try:
         current_user = await get_current_learner(request)
-        user_id = current_user.get('id') or current_user.get('userId')
+        user_id = str(current_user.get('id') or current_user.get('userId') or current_user.get('email'))
         
         # Generate study plan using AI
         study_plan = await ai_tutor_service.generate_study_plan(
@@ -37,8 +39,26 @@ async def generate_learning_path(
             available_weeks=12
         )
         
+        # Persist correctly in DB
+        db_path = db.query(LearningPath).filter(LearningPath.user_id == user_id).first()
+        if db_path:
+            db_path.target_role = target_role
+            db_path.study_plan = study_plan
+            db_path.time_per_week = time_per_week
+        else:
+            db_path = LearningPath(
+                user_id=user_id,
+                target_role=target_role,
+                study_plan=study_plan,
+                time_per_week=time_per_week
+            )
+            db.add(db_path)
+        
+        db.commit()
+        db.refresh(db_path)
+        
         return {
-            "path_id": f"path_{user_id}",
+            "path_id": db_path.id,
             "user_id": user_id,
             "target_role": target_role,
             "study_plan": study_plan,
@@ -68,7 +88,7 @@ async def get_learning_path(
     
     try:
         current_user = await get_current_learner(request)
-        current_user_id = current_user.get('id') or current_user.get('userId')
+        current_user_id = str(current_user.get('id') or current_user.get('userId') or current_user.get('email'))
         
         # Verify user can only access their own path
         if current_user_id != user_id:
@@ -77,28 +97,24 @@ async def get_learning_path(
                 detail="Cannot access other user's learning path"
             )
         
+        db_path = db.query(LearningPath).filter(LearningPath.user_id == user_id).first()
+        
+        if not db_path:
+            return None # Frontend handles null as "no path yet"
+
         return {
-            "path_id": f"path_{user_id}",
+            "path_id": db_path.id,
             "user_id": user_id,
-            "target_role": "Software Engineer",
-            "progress": 25,
-            "completed_courses": [
-                {
-                    "id": 1,
-                    "title": "Python Basics",
-                    "completed_at": "2026-04-01"
-                }
-            ],
+            "target_role": db_path.target_role,
+            "study_plan": db_path.study_plan,
+            "time_per_week": db_path.time_per_week,
+            "progress": db_path.progress,
+            "completed_courses": [],
             "next_courses": [
                 {
                     "id": 2,
                     "title": "Data Structures in Python",
                     "estimated_weeks": 4
-                },
-                {
-                    "id": 3,
-                    "title": "Web Development with FastAPI",
-                    "estimated_weeks": 6
                 }
             ],
             "estimated_completion": "2026-08-15"
@@ -126,7 +142,7 @@ async def update_learning_path(
     
     try:
         current_user = await get_current_learner(request)
-        current_user_id = current_user.get('id') or current_user.get('userId')
+        current_user_id = str(current_user.get('id') or current_user.get('userId') or current_user.get('email'))
         
         if current_user_id != user_id:
             raise HTTPException(
@@ -134,8 +150,19 @@ async def update_learning_path(
                 detail="Cannot modify other user's learning path"
             )
         
+        db_path = db.query(LearningPath).filter(LearningPath.user_id == user_id).first()
+        if not db_path:
+            raise HTTPException(status_code=404, detail="Learning path not found")
+        
+        if new_goal:
+            db_path.target_role = new_goal
+        if time_per_week:
+            db_path.time_per_week = time_per_week
+            
+        db.commit()
+        
         return {
-            "path_id": f"path_{user_id}",
+            "path_id": db_path.id,
             "status": "updated",
             "new_goal": new_goal,
             "new_time_per_week": time_per_week
