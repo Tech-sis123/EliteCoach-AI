@@ -13,6 +13,8 @@ import java.util.UUID;
 @Data
 public class UserRequest {
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private UUID userId;
     @NotNull(message = "First name cannot be null")
     private String firstName;
 
