@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000","https://elite-coach-seven.vercel.app", "http://localhost:8080"]
+    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000","https://elite-coach-seven.vercel.app", "http://localhost:8080","https://elite-coach-lake.vercel.app"]
     
     # Environment
     ENVIRONMENT: str = "development"
