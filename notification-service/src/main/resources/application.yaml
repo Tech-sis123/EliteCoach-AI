@@ -1,6 +1,10 @@
 spring:
   application:
     name: notification-service
+  rabbitmq:
+    listener:
+      simple:
+        micrometer-enabled: false
   datasource:
     url: jdbc:mysql://${DB_HOST}:${DB_PORT}/notificationDb?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: ${DB_USER}
