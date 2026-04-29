@@ -72,13 +72,13 @@ public class NotificationService {
 
     private void sendWithResend(EmailRequest emailRequest) {
         try {
-            WebClient.create("https://api.resend.com")
+            String response = WebClient.create("https://api.resend.com")
                     .post()
                     .uri("/emails")
                     .header("Authorization", "Bearer " + apiKey)
                     .header("Content-Type", "application/json")
                     .bodyValue(Map.of(
-                            "from", "onboarding@resend.dev", // safer default
+                            "from", "onboarding@resend.dev",
                             "to", emailRequest.getTo(),
                             "subject", emailRequest.getSubject(),
                             "html", "<p>" + emailRequest.getBody() + "</p>"
@@ -87,11 +87,11 @@ public class NotificationService {
                     .bodyToMono(String.class)
                     .block();
 
-        } catch (Exception resendEx) {
-            log.error("Resend ALSO failed: {}", resendEx.getMessage());
+            log.info("Resend success: {}", response);
 
-            // Optional: don't crash your app
-            throw new RuntimeException("All email providers failed");
+        } catch (Exception e) {
+            log.error("Resend failed FULL ERROR:", e); // ✅ VERY IMPORTANT
+            throw new RuntimeException("All email providers failed", e);
         }
     }
 
