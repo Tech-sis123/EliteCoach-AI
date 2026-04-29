@@ -10,9 +10,11 @@ import com.elitecoach.notification_service.request.WhatsappRequest;
 import com.elitecoach.notification_service.response.AccessTokenResponse;
 import com.elitecoach.notification_service.response.WhatsappNotificationResponse;
 import jakarta.mail.internet.InternetAddress;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -25,6 +27,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Service
+@Slf4j
 public class NotificationService {
 
     @Autowired
@@ -44,19 +47,52 @@ public class NotificationService {
     @Autowired
     private NotificationMapper notificationMapper;
 
+    @Value("${RESEND_API_KEY}")
+    private String apiKey;
 
 
-    public void sendSimpleMail(EmailRequest emailRequest)  {
-        SimpleMailMessage simpleMailMessage = new SimpleMailMessage();
-        simpleMailMessage.setTo(emailRequest.getTo());
+    public void sendSimpleMail(EmailRequest emailRequest) {
+
         try {
-            simpleMailMessage.setFrom(new InternetAddress(fromEmail,  "EliteCoach").toString());
-        } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException(e);
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(emailRequest.getTo());
+            message.setFrom(fromEmail);
+            message.setSubject(emailRequest.getSubject());
+            message.setText(emailRequest.getBody());
+
+            javaMailSender.send(message);
+
+        } catch (MailException ex) {
+            // ✅ Only fallback for MAIL-related issues
+            log.error("SMTP failed, switching to Resend: {}", ex.getMessage());
+
+            sendWithResend(emailRequest);
         }
-        simpleMailMessage.setSubject(emailRequest.getSubject());
-        simpleMailMessage.setText(emailRequest.getBody());
-        javaMailSender.send(simpleMailMessage);
+    }
+
+    private void sendWithResend(EmailRequest emailRequest) {
+        try {
+            WebClient.create("https://api.resend.com")
+                    .post()
+                    .uri("/emails")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Content-Type", "application/json")
+                    .bodyValue(Map.of(
+                            "from", "onboarding@resend.dev", // safer default
+                            "to", emailRequest.getTo(),
+                            "subject", emailRequest.getSubject(),
+                            "html", "<p>" + emailRequest.getBody() + "</p>"
+                    ))
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+        } catch (Exception resendEx) {
+            log.error("Resend ALSO failed: {}", resendEx.getMessage());
+
+            // Optional: don't crash your app
+            throw new RuntimeException("All email providers failed");
+        }
     }
 
     public void createNotificationPreferences(NotificationRequest notificationRequest, UserRequest userRequest) {

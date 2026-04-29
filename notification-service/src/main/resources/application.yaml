@@ -54,3 +54,6 @@ INTERSWITCH:
 
 rabbitmq:
   uri: ${RABBITMQ_URL}
+
+
+RESEND_API_KEY: ${RESEND_API_KEY}
