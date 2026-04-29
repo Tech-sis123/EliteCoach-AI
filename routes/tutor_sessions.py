@@ -8,7 +8,7 @@ from typing import Optional
 from core.database import get_db
 from core.security import get_current_learner, security
 from schemas.schemas import TutorSessionResponse, TutorChat
-from models.models import TutorSession
+from models.models import TutorSession, Subject
 from services.rag_engine import rag_engine
 from services.event_publisher import event_publisher
 from services.identity_service_client import identity_service
@@ -37,6 +37,22 @@ async def start_tutor_session(
         current_user = await get_current_learner(request)
         # Fallback to email if id/userId is missing
         user_id = str(current_user.get('id') or current_user.get('userId') or current_user.get('email'))
+        
+        # Ensure subject exists (Bypass ForeignKeyViolation by auto-creating if missing)
+        subject = db.query(Subject).filter(Subject.id == subject_id).first()
+        if not subject:
+            logger.info(f"Subject {subject_id} not found in DB. Auto-creating to satisfy foreign key.")
+            new_subject = Subject(
+                id=subject_id,
+                name=f"Topic {subject_id}",
+                description=f"Auto-generated subject for tutoring on {topic}"
+            )
+            db.add(new_subject)
+            try:
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                logger.warning(f"Could not auto-create subject {subject_id}: {str(e)}")
         
         # Create new session
         session = TutorSession(
