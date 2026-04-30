@@ -2,6 +2,7 @@ package org.identity_service.EliteCoach.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.identity_service.EliteCoach.dto.UserRequest;
+import org.identity_service.EliteCoach.handler.exceptions.UserNotFoundException;
 import org.identity_service.EliteCoach.mapper.UserMapper;
 import org.identity_service.EliteCoach.model.User;
 import org.identity_service.EliteCoach.repository.UserRepository;
@@ -29,6 +30,11 @@ public class UserService {
     private NotificationService notificationService;
 
     public Map<String,Object> createUser(UserRequest userRequest) {
+        if(userRepository.existsByEmail(userRequest.getEmail())) {
+            return Map.of("message","User account already exists, choose a unique email",
+                    "status", "failed");
+        }
+
         User user = userMapper.convertToModel(userRequest);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
 
@@ -53,7 +59,7 @@ public class UserService {
 
     public Map<String,Object> resetPassword(PasswordResetRequest passwordResetRequest) {
         User user = userRepository.findByEmail(passwordResetRequest.getEmail())
-                .orElseThrow(() -> new RuntimeException("User account dont exists"));
+                .orElseThrow(() -> new UserNotFoundException("User account dont exists"));
         if(passwordEncoder.matches(passwordResetRequest.getOldPassword(), user.getPassword())) {
             user.setPassword(passwordEncoder.encode(passwordResetRequest.getNewPassword()));
             userRepository.save(user);
@@ -71,7 +77,8 @@ public class UserService {
     }
 
     public void updateUserVerification(String email) {
-        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User account dont exists"));
+        User user = userRepository.findByEmail(email).orElseThrow(() ->
+                new UserNotFoundException("User account dont exists"));
         user.setEmailVerified(true);
 
         userRepository.save(user);

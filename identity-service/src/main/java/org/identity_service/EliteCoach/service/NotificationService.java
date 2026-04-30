@@ -2,7 +2,10 @@ package org.identity_service.EliteCoach.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.identity_service.EliteCoach.configuration.RabbitMQConfig;
+import org.identity_service.EliteCoach.producer.RabbitMQProducer;
 import org.identity_service.EliteCoach.request.ChannelRequest;
+import org.identity_service.EliteCoach.request.EmailRequest;
 import org.identity_service.EliteCoach.request.WhatsappRequest;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,21 +25,13 @@ public class NotificationService {
     private WebClient webClient;
     @Autowired
     private ObjectMapper objectMapper;
-    @Value("${NOTIFICATION-SERVICE.BASE_URL}")
-    private String notificationServiceBaseUrl;
+    @Autowired
+    private RabbitMQProducer rabbitMQProducer;
 
-    public @Nullable Map sendOTP(ChannelRequest channelRequest) {
-        try {
-            return webClient.post()
-                    .uri(notificationServiceBaseUrl+"/api/v1/notification/send")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(channelRequest)
-                    .retrieve()
-                    .bodyToMono(Map.class)
-                    .block();
-        } catch (RuntimeException e) {
-            throw new RuntimeException(e);
-        }
+    public void sendOTP(ChannelRequest channelRequest) {
+        EmailRequest emailRequest =
+                new EmailRequest(channelRequest.getTo(), channelRequest.getSubject(),  channelRequest.getBody());
+        rabbitMQProducer.handleEmailNotification("email.send", emailRequest);
     }
 
     public boolean verifyEmailOtp(String requestOtp) {
