@@ -1,6 +1,6 @@
 package org.identity_service.EliteCoach.configuration;
 
-import org.identity_service.EliteCoach.repository.UserRepository;
+import org.identity_service.EliteCoach.service.UserLoginService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -11,10 +11,10 @@ import org.springframework.stereotype.Service;
 public class MyUserDetailsService implements UserDetailsService {
 
     @Autowired
-    private UserRepository userRepository;
+    private UserLoginService userLoginService;
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        return new UserPrincipal(userRepository.findByEmail(username).orElseThrow(() -> new RuntimeException("user not found")));
+        return new UserPrincipal(userLoginService.getUser(username));
     }
 }

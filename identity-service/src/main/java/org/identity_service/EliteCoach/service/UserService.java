@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
@@ -29,20 +30,30 @@ public class UserService {
     @Autowired
     private NotificationService notificationService;
 
+    private final Map<String, UserRequest>  userCache;
+    private final Map<String, User> dbCache;
+
+    public UserService() {
+        userCache = new ConcurrentHashMap<>();
+        dbCache = new ConcurrentHashMap<>();
+    }
+
     public Map<String,Object> createUser(UserRequest userRequest) {
-        if(userRepository.existsByEmail(userRequest.getEmail())) {
+        if(dbCache.containsKey(userRequest.getEmail())) {
             return Map.of("message","User account already exists, choose a unique email",
                     "status", "failed");
         }
 
         User user = userMapper.convertToModel(userRequest);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
+        userRepository.save(user);
 
         Map<String,Object> data = new LinkedHashMap<>();
         data.put("userId", user.getUserId());
         data.put("persona", user.getUserType());
         data.put("isVerified", user.getEmailVerified());
 
+        System.out.println(user);
         //send email notification (otp)
         ChannelRequest channelRequest = new ChannelRequest();
         channelRequest.setChannel("email");
@@ -51,8 +62,10 @@ public class UserService {
         channelRequest.setBody("Verify your EliteCoach Account, Your OTP Is: ".concat(notificationService.generateOTP()));
         notificationService.sendOTP(channelRequest);
 
-        userRepository.save(user);
-
+        if(!userCache.containsKey(user.getEmail())) {
+            userCache.put(user.getEmail(), userMapper.convertToRequest(user));
+            dbCache.put(user.getEmail(), user);
+        }
         return Map.of("message","User created successfully",
                 "status", "success","data",data);
     }
@@ -69,11 +82,27 @@ public class UserService {
 
 
     public UserRequest getUserProfile(String email) {
-        return userRepository.findByEmail(email).map(userMapper::convertToRequest).orElseThrow(() -> new RuntimeException("User not found"));
+        if(userCache.containsKey(email)) {
+            return userCache.get(email);
+        } else {
+            UserRequest userRequest = userRepository.
+                    findByEmail(email).map(userMapper::convertToRequest).
+                    orElseThrow(() -> new UserNotFoundException("User not found"));
+            userCache.put(email, userRequest);
+            return userRequest;
+        }
     }
 
     public User getUser(String email) {
-        return userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
+        if(dbCache.containsKey(email)) {
+            return dbCache.get(email);
+        } else {
+            User user = userRepository.
+                    findByEmail(email).orElseThrow(() -> new
+                            UserNotFoundException("User not found"));
+            dbCache.put(email, user);
+            return user;
+        }
     }
 
     public void updateUserVerification(String email) {

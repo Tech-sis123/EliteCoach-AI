@@ -35,3 +35,6 @@ NOTIFICATION-SERVICE:
 
 server:
   port: 8083
+
+rabbitmq:
+  uri: ${RABBITMQ_URL}

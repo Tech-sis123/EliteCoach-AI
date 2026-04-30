@@ -29,8 +29,6 @@ import java.util.*;
 @EnableWebSecurity
 public class SecurityConfiguration {
 
-    @Autowired
-    private MyUserDetailsService myUserDetailsService;
 
     @Autowired
     private JwtFilter jwtFilter;
@@ -55,7 +53,7 @@ public class SecurityConfiguration {
 
     @Bean
     public UserDetailsService userDetailsService() {
-        return myUserDetailsService;
+        return new MyUserDetailsService();
     }
 
     @Bean
