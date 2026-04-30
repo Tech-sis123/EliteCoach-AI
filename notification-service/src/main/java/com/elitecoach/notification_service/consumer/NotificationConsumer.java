@@ -3,6 +3,7 @@ package com.elitecoach.notification_service.consumer;
 import com.elitecoach.notification_service.configuration.RabbitMQConfig;
 import com.elitecoach.notification_service.request.EmailRequest;
 import com.elitecoach.notification_service.request.WhatsappRequest;
+import com.elitecoach.notification_service.service.MessageBodyService;
 import com.elitecoach.notification_service.service.NotificationService;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,8 @@ public class NotificationConsumer {
 
     @Autowired
     private NotificationService notificationService;
+    @Autowired
+    private MessageBodyService messageBodyService;
 
     @Autowired
     private JavaMailSender javaMailSender;
@@ -31,27 +34,27 @@ public class NotificationConsumer {
     // Assume you have a FeignClient or RestTemplate to fetch User info from Identity Service
     // private final IdentityServiceClient identityClient;
 
+
     @RabbitListener(queues = RabbitMQConfig.QUEUE_NAME)
-    public void handleNotificationEvent(Map<String, Object> eventPayload) {
-        log.info("Received Event: {}", eventPayload.get("event"));
+    public void handleEvent(Map<String, Object> event) {
 
-        String eventType = (String) eventPayload.get("event");
-        String learnerId = (String) eventPayload.get("learner_id");
+        String eventType = (String) event.get("event");
 
-        // 1. Fetch User details (Phone/Email) from Identity Service using learnerId
-        //UserDTO user = identityClient.getUserById(learnerId);
+        String emailBody = switch (eventType) {
+            case "LEARNER_SESSION_STARTED" -> messageBodyService.buildSessionStartedEmail(event);
+            case "LEARNER_SESSION_COMPLETED" -> messageBodyService.buildSessionCompletedEmail(event);
+            case "LEARNER_COURSE_COMPLETED" -> messageBodyService.buildCourseCompletedEmail(event);
+            case "ESCALATION_TRIGGERED" -> messageBodyService.buildEscalationEmail(event);
+            case "AI_RESPONSE_GENERATED" -> messageBodyService.buildAIResponseEmail(event);
+            default -> "Unknown event received";
+        };
 
-        switch (eventType) {
-            case "LEARNER_SESSION_COMPLETED":
-                sendSessionSummary(learnerId, eventPayload);
-                break;
-            case "LEARNER_COURSE_COMPLETED":
-                sendCertificateNotification(learnerId, eventPayload);
-                break;
-            case "ESCALATION_TRIGGERED":
-                //notifyHumanTutor(eventPayload);
-                break;
-        }
+        System.out.println("Received Event: " + event);
+        System.out.println("Generated Email Body: " + emailBody);
+    }
+
+    private void handleAIResponse(Map<String, Object> event) {
+        System.out.println("AI Response Generated: " + event);
     }
 
     private void sendSessionSummary(String learnerId, Map<String, Object> data) {
