@@ -2,6 +2,7 @@ package org.identity_service.EliteCoach.handler;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.identity_service.EliteCoach.handler.exceptions.JwtSignatureException;
 import org.identity_service.EliteCoach.handler.exceptions.UserNotFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -24,5 +25,9 @@ public class AppExceptionHandler {
     @ExceptionHandler(UserNotFoundException.class)
     public Map<String, Object> handleUserNotFoundException(UserNotFoundException userNotFoundException, HttpServletRequest request, HttpServletResponse servletResponse) {
         return handleCustomMailException(userNotFoundException, "User details not found", request, servletResponse);
+    }
+    @ExceptionHandler(io.jsonwebtoken.security.SignatureException.class)
+    public Map<String, Object> handleUserNotFoundException(io.jsonwebtoken.security.SignatureException jwtSignatureException, HttpServletRequest request, HttpServletResponse servletResponse) {
+        return handleCustomMailException(jwtSignatureException, "Invalid Jwt token", request, servletResponse);
     }
 }

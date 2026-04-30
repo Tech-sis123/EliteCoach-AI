@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.identity_service.EliteCoach.configuration.MyUserDetailsService;
+import org.identity_service.EliteCoach.handler.exceptions.JwtSignatureException;
 import org.identity_service.EliteCoach.model.User;
 import org.identity_service.EliteCoach.service.JwtService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,25 +41,34 @@ public class JwtFilter extends OncePerRequestFilter {
         String token =  null;
         String email = null;
 
-        if(header!=null && header.startsWith("Bearer")) {
-            token = header.substring(7);
-            email = jwtService.extractEmail(token);
+        try {
+            if (header != null && header.startsWith("Bearer")) {
+                token = header.substring(7);
+                email = jwtService.extractEmail(token);
 
-            //check if token is blacklisted
-            if(jwtService.isBlacklist(token)) {
-                response.getWriter().write(objectMapper.writeValueAsString(Map.of("message", "Jwt token is blacklisted", "status", HttpStatus.UNAUTHORIZED)));
-                throw new RuntimeException("Invalid Jwt Token");
-            }
+                //check if token is blacklisted
+                if (jwtService.isBlacklist(token)) {
+                    response.getWriter().write(objectMapper.writeValueAsString(Map.of("message", "Jwt token is blacklisted", "status", HttpStatus.UNAUTHORIZED)));
+                    throw new RuntimeException("Invalid Jwt Token");
+                }
 
-            if(email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                UserDetails userDetails = myUserDetailsService.loadUserByUsername(email);
-                if(jwtService.isTokenValid(token, userDetails)) {
-                    UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(userDetails.getUsername(), null, userDetails.getAuthorities());
-                    usernamePasswordAuthenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
-                    log.info("authentication successful for user: {}", email);
+                if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                    UserDetails userDetails = myUserDetailsService.loadUserByUsername(email);
+                    if (jwtService.isTokenValid(token, userDetails)) {
+                        UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(userDetails.getUsername(), null, userDetails.getAuthorities());
+                        usernamePasswordAuthenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
+                        log.info("authentication successful for user: {}", email);
+                    }
                 }
             }
+        }
+        catch(io.jsonwebtoken.security.SignatureException jwtSignatureException) {
+            response.setStatus(HttpStatus.UNAUTHORIZED.value());
+            response.getWriter().write(objectMapper.writeValueAsString(Map.of("message", "Invalid Jwt token signature", "status", HttpStatus.UNAUTHORIZED)));
+        }
+        catch (Exception ex) {
+            log.error("Error validating Jwt token: {}", ex.getMessage());
         }
         filterChain.doFilter(request,response);
     }
