@@ -37,7 +37,7 @@ public class AuthController {
            userService.updateUserVerification(verifyOtpRequest.getEmail());
            return ResponseEntity.ok().body(Map.of("status", "success", "message", "Verification success"));
        } else{
-           throw new RuntimeException("Invalid OTP");
+           return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", "Invalid OTP", "status", 500));
        }
     }
 

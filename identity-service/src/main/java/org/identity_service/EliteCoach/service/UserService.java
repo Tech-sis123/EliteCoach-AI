@@ -39,7 +39,13 @@ public class UserService {
     }
 
     public Map<String,Object> createUser(UserRequest userRequest) {
+
         if(dbCache.containsKey(userRequest.getEmail())) {
+            return Map.of("message","User account already exists, choose a unique email",
+                    "status", "failed");
+        }
+
+        if(userRepository.existsByEmail(userRequest.getEmail())) {
             return Map.of("message","User account already exists, choose a unique email",
                     "status", "failed");
         }
