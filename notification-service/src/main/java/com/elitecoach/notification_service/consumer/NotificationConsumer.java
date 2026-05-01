@@ -39,26 +39,12 @@ public class NotificationConsumer {
     private NotificationService notificationService;
     @Autowired
     private MessageBodyService messageBodyService;
-    private SimpleMailMessage simpleMailMessage;
-    @Value("${brevo.api.key}")
-    private String BREVO_APIKEY;
-
-
-    @PostConstruct
-    public void init() {
-        simpleMailMessage = new SimpleMailMessage();
-        try {
-            simpleMailMessage.setFrom(new InternetAddress(fromEmail, "EliteCoach").toString());
-        } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-
     @Autowired
     private JavaMailSender javaMailSender;
     @Value("${spring.mail.username}")
     private String fromEmail;
+    @Value("${brevo.api.key}")
+    private String BREVO_APIKEY;
     // Assume you have a FeignClient or RestTemplate to fetch User info from Identity Service
     // private final IdentityServiceClient identityClient;
 

@@ -21,9 +21,19 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+import sendinblue.ApiClient;
+import sendinblue.ApiException;
+import sendinblue.Configuration;
+import sendinblue.auth.ApiKeyAuth;
+import sibApi.TransactionalEmailsApi;
+import sibModel.CreateSmtpEmail;
+import sibModel.SendSmtpEmail;
+import sibModel.SendSmtpEmailSender;
+import sibModel.SendSmtpEmailTo;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -47,8 +57,36 @@ public class NotificationService {
     @Autowired
     private NotificationProducer notificationProducer;
 
+    @Value("${brevo.api.key}")
+    private String BREVO_APIKEY;
+
     public void sendSimpleMail(EmailRequest emailRequest) {
         notificationProducer.handleEmailNotification("email.send", emailRequest);
+    }
+
+    public void sendNotificationEmail(EmailRequest emailRequest) {
+        ApiClient defaultClient = Configuration.getDefaultApiClient();
+
+        // Configure API key authorization: api-key
+        ApiKeyAuth apiKey = (ApiKeyAuth) defaultClient.getAuthentication("api-key");
+        apiKey.setApiKey(BREVO_APIKEY);
+
+        TransactionalEmailsApi apiInstance = new TransactionalEmailsApi();
+
+        SendSmtpEmail sendSmtpEmail = new SendSmtpEmail();
+        sendSmtpEmail.setSender(new SendSmtpEmailSender().name("Elite Coach").email("fakorodehenry@gmail.com"));
+        sendSmtpEmail.setTo(Collections.singletonList(new SendSmtpEmailTo().email(emailRequest.getTo()).name(emailRequest.getTo())));
+        sendSmtpEmail.setSubject(emailRequest.getSubject());
+        sendSmtpEmail.setHtmlContent("<html><body><h1>" + emailRequest.getBody() + "</h1><p>Ready to play?</p></body></html>");
+
+        try {
+            CreateSmtpEmail result = apiInstance.sendTransacEmail(sendSmtpEmail);
+        } catch (ApiException e) {
+            // THIS LINE IS CRITICAL
+            System.err.println("Status code: " + e.getCode());
+            System.err.println("Response body: " + e.getResponseBody());
+            e.printStackTrace();
+        }
     }
 
     public void createNotificationPreferences(NotificationRequest notificationRequest, UserRequest userRequest) {
@@ -61,6 +99,7 @@ public class NotificationService {
         notification.setEmail(userRequest.getEmail());
         notificationRepository.save(notification);
     }
+
 
     public NotificationRequest getNotificationPreferences(String email) {
         // Implement logic to retrieve notification preferences from a database or another service
