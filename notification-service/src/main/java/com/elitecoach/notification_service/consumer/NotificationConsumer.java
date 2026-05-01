@@ -5,6 +5,8 @@ import com.elitecoach.notification_service.request.EmailRequest;
 import com.elitecoach.notification_service.request.WhatsappRequest;
 import com.elitecoach.notification_service.service.MessageBodyService;
 import com.elitecoach.notification_service.service.NotificationService;
+import jakarta.annotation.PostConstruct;
+import jakarta.mail.internet.InternetAddress;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -15,6 +17,7 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
+import java.io.UnsupportedEncodingException;
 import java.util.Map;
 
 @Service
@@ -26,6 +29,18 @@ public class NotificationConsumer {
     private NotificationService notificationService;
     @Autowired
     private MessageBodyService messageBodyService;
+    private SimpleMailMessage simpleMailMessage;
+
+    @PostConstruct
+    public void init() {
+        simpleMailMessage = new SimpleMailMessage();
+        try {
+            simpleMailMessage.setFrom(new InternetAddress(fromEmail, "EliteCoach").toString());
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 
     @Autowired
     private JavaMailSender javaMailSender;
@@ -81,13 +96,11 @@ public class NotificationConsumer {
     @RabbitListener(queues = "#{emailQueue.name}")
     public void sendNotificationEmail(EmailRequest emailRequest) {
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(emailRequest.getTo());
-            message.setFrom(fromEmail); // Ensure this is set in application.properties
-            message.setSubject(emailRequest.getSubject());
-            message.setText(emailRequest.getBody());
+            simpleMailMessage.setTo(emailRequest.getTo());
+            simpleMailMessage.setSubject(emailRequest.getSubject());
+            simpleMailMessage.setText(emailRequest.getBody());
 
-            javaMailSender.send(message);
+            javaMailSender.send(simpleMailMessage);
         } catch (MailException ex) {
             // ✅ Only fallback for MAIL-related issues
             log.error("SMTP failed, switching to Resend: {}", ex.getMessage());
