@@ -44,36 +44,37 @@ public class UserService {
             return Map.of("message","User account already exists, choose a unique email",
                     "status", "failed");
         }
-
         if(userRepository.existsByEmail(userRequest.getEmail())) {
             return Map.of("message","User account already exists, choose a unique email",
                     "status", "failed");
         }
+        else {
+            //send email notification (otp)
+            ChannelRequest channelRequest = new ChannelRequest();
+            channelRequest.setChannel("email");
+            channelRequest.setTo(userRequest.getEmail());
+            channelRequest.setSubject("EliteCoach Account Verification");
+            channelRequest.setBody("Verify your EliteCoach Account, Your OTP Is: ".concat(notificationService.generateOTP()));
+            notificationService.sendOTP(channelRequest);
 
-        User user = userMapper.convertToModel(userRequest);
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        userRepository.save(user);
+            User user = userMapper.convertToModel(userRequest);
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+            userRepository.save(user);
 
-        Map<String,Object> data = new LinkedHashMap<>();
-        data.put("userId", user.getUserId());
-        data.put("persona", user.getUserType());
-        data.put("isVerified", user.getEmailVerified());
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("userId", user.getUserId());
+            data.put("persona", user.getUserType());
+            data.put("isVerified", user.getEmailVerified());
 
-        System.out.println(user);
-        //send email notification (otp)
-        ChannelRequest channelRequest = new ChannelRequest();
-        channelRequest.setChannel("email");
-        channelRequest.setTo(userRequest.getEmail());
-        channelRequest.setSubject("EliteCoach Account Verification");
-        channelRequest.setBody("Verify your EliteCoach Account, Your OTP Is: ".concat(notificationService.generateOTP()));
-        notificationService.sendOTP(channelRequest);
+            System.out.println(user);
 
-        if(!userCache.containsKey(user.getEmail())) {
-            userCache.put(user.getEmail(), userMapper.convertToRequest(user));
-            dbCache.put(user.getEmail(), user);
+            if (!userCache.containsKey(user.getEmail())) {
+                userCache.put(user.getEmail(), userMapper.convertToRequest(user));
+                dbCache.put(user.getEmail(), user);
+            }
+            return Map.of("message", "User created successfully",
+                    "status", "success", "data", data);
         }
-        return Map.of("message","User created successfully",
-                "status", "success","data",data);
     }
 
     public Map<String,Object> resetPassword(PasswordResetRequest passwordResetRequest) {
