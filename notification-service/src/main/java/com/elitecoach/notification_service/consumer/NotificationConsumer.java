@@ -5,8 +5,16 @@ import com.elitecoach.notification_service.request.EmailRequest;
 import com.elitecoach.notification_service.request.WhatsappRequest;
 import com.elitecoach.notification_service.service.MessageBodyService;
 import com.elitecoach.notification_service.service.NotificationService;
+import com.sendgrid.Method;
+import com.sendgrid.Request;
+import com.sendgrid.Response;
+import com.sendgrid.SendGrid;
+import com.sendgrid.helpers.mail.Mail;
+import com.sendgrid.helpers.mail.objects.Content;
+import com.sendgrid.helpers.mail.objects.Email;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,11 +23,11 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.Map;
 
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class NotificationConsumer {
 
     @Autowired
@@ -27,13 +35,12 @@ public class NotificationConsumer {
     @Autowired
     private MessageBodyService messageBodyService;
 
-    @Autowired
-    private JavaMailSender javaMailSender;
-    @Value("${spring.mail.username}")
-    private String fromEmail;
-    // Assume you have a FeignClient or RestTemplate to fetch User info from Identity Service
-    // private final IdentityServiceClient identityClient;
+    private final SendGrid sendGrid;
 
+    // Inject the SendGrid bean (configured in a @Configuration class)
+    public NotificationConsumer(SendGrid sendGrid) {
+        this.sendGrid = sendGrid;
+    }
 
     @RabbitListener(queues = RabbitMQConfig.QUEUE_NAME)
     public void handleEvent(Map<String, Object> event) {
@@ -80,17 +87,26 @@ public class NotificationConsumer {
 
     @RabbitListener(queues = "#{emailQueue.name}")
     public void sendNotificationEmail(EmailRequest emailRequest) {
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(emailRequest.getTo());
-            message.setFrom(fromEmail); // Ensure this is set in application.properties
-            message.setSubject(emailRequest.getSubject());
-            message.setText(emailRequest.getBody());
+        Email from = new Email("notifications@yourdomain.com");
+        Email to = new Email(emailRequest.getTo());
+        Content content = new Content("text/plain", emailRequest.getBody());
+        Mail mail = new Mail(from, emailRequest.getSubject(), to, content);
 
-            javaMailSender.send(message);
-        } catch (MailException ex) {
-            // ✅ Only fallback for MAIL-related issues
-            log.error("SMTP failed, switching to Resend: {}", ex.getMessage());
+        Request request = new Request();
+        try {
+            request.setMethod(Method.POST);
+            request.setEndpoint("mail/send");
+            request.setBody(mail.build());
+
+            Response response = sendGrid.api(request);
+
+            if (response.getStatusCode() >= 400) {
+                log.error("SendGrid error: {} - {}", response.getStatusCode(), response.getBody());
+                // Optionally throw an exception here to trigger RabbitMQ retries
+            }
+        } catch (IOException ex) {
+            log.error("Failed to send email due to network error", ex);
+            throw new AmqpRejectAndDontRequeueException(ex); // Send to Dead Letter Queue
         }
     }
 }

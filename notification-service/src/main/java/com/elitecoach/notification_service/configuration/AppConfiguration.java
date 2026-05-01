@@ -4,13 +4,19 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.sendgrid.SendGrid;
 import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.function.client.WebClient;
 
 @Configuration
 public class AppConfiguration {
+
+
+    @Value("${sendgrid.apikey}")
+    private String SENDGRID_APIKEY;
 
     @Bean
     public WebClient webClient() {
@@ -33,6 +39,11 @@ public class AppConfiguration {
         // be forgiving with unknown properties on input
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         return mapper;
+    }
+
+    @Bean
+    public SendGrid sendGrid() {
+        return new SendGrid(SENDGRID_APIKEY);
     }
 
 }

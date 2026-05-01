@@ -63,3 +63,5 @@ rabbitmq:
 RESEND:
   key: ${RESEND_API_KEY}
 
+sendgrid:
+  api-key: ${sendKey}
