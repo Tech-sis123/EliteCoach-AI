@@ -106,7 +106,7 @@ public class NotificationConsumer {
         sendSmtpEmail.setSender(new SendSmtpEmailSender().name("Elite Coach").email("fakorodehenry@gmail.com"));
         sendSmtpEmail.setTo(Collections.singletonList(new SendSmtpEmailTo().email(emailRequest.getTo()).name(emailRequest.getTo())));
         sendSmtpEmail.setSubject(emailRequest.getSubject());
-        sendSmtpEmail.setHtmlContent("<html><body><h1>" + emailRequest.getBody() + "</h1><p>Ready to play?</p></body></html>");
+        sendSmtpEmail.setHtmlContent("<html><body><h1>" + emailRequest.getBody() + "</h1><p></p></body></html>");
 
         try {
             CreateSmtpEmail result = apiInstance.sendTransacEmail(sendSmtpEmail);
