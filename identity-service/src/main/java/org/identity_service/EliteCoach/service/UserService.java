@@ -38,43 +38,45 @@ public class UserService {
         dbCache = new ConcurrentHashMap<>();
     }
 
-    public Map<String,Object> createUser(UserRequest userRequest) {
+    public Map<String, Object> createUser(UserRequest userRequest) {
+        // 1. Validations
+        if (userRepository.existsByEmail(userRequest.getEmail())) {
+            return Map.of("message", "User account already exists", "status", "failed");
+        }
 
-        if(dbCache.containsKey(userRequest.getEmail())) {
-            return Map.of("message","User account already exists, choose a unique email",
-                    "status", "failed");
-        }
-        if(userRepository.existsByEmail(userRequest.getEmail())) {
-            return Map.of("message","User account already exists, choose a unique email",
-                    "status", "failed");
-        }
-        else {
-            //send email notification (otp)
+        // 2. Prepare and Save User First
+        User user = userMapper.convertToModel(userRequest);
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        user.setEmailVerified(false); // Assume unverified until OTP is used
+        userRepository.save(user);
+
+        // 3. Attempt to send Email (with safety net)
+        try {
+            String otp = notificationService.generateOTP();
             ChannelRequest channelRequest = new ChannelRequest();
             channelRequest.setChannel("email");
             channelRequest.setTo(userRequest.getEmail());
             channelRequest.setSubject("EliteCoach Account Verification");
-            channelRequest.setBody("Verify your EliteCoach Account, Your OTP Is: ".concat(notificationService.generateOTP()));
+            channelRequest.setBody("Verify your EliteCoach Account, Your OTP Is: " + otp);
+
             notificationService.sendOTP(channelRequest);
-
-            User user = userMapper.convertToModel(userRequest);
-            user.setPassword(passwordEncoder.encode(user.getPassword()));
-            userRepository.save(user);
-
-            Map<String, Object> data = new LinkedHashMap<>();
-            data.put("userId", user.getUserId());
-            data.put("persona", user.getUserType());
-            data.put("isVerified", user.getEmailVerified());
-
-            System.out.println(user);
-
-            if (!userCache.containsKey(user.getEmail())) {
-                userCache.put(user.getEmail(), userMapper.convertToRequest(user));
-                dbCache.put(user.getEmail(), user);
-            }
-            return Map.of("message", "User created successfully",
-                    "status", "success", "data", data);
+        } catch (Exception e) {
+            // Log the error but don't stop the user creation
+            System.err.println("Failed to send email: " + e.getMessage());
+            // Optionally return a success message saying "User created but email failed"
         }
+
+        // 4. Update Caches
+        userCache.put(user.getEmail(), userMapper.convertToRequest(user));
+        dbCache.put(user.getEmail(), user);
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("userId", user.getUserId());
+        data.put("persona", user.getUserType());
+        data.put("isVerified", user.getEmailVerified());
+
+        return Map.of("message", "User created successfully. Please check your email for OTP.",
+                "status", "success", "data", data);
     }
 
     public Map<String,Object> resetPassword(PasswordResetRequest passwordResetRequest) {

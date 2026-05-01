@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.sendgrid.SendGrid;
+import com.resend.Resend;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -13,10 +13,6 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 @Configuration
 public class AppConfiguration {
-
-
-    @Value("${sendgrid.apikey}")
-    private String SENDGRID_APIKEY;
 
     @Bean
     public WebClient webClient() {
@@ -42,8 +38,9 @@ public class AppConfiguration {
     }
 
     @Bean
-    public SendGrid sendGrid() {
-        return new SendGrid(SENDGRID_APIKEY);
+    public Resend resend() {
+        // Use the token from your screenshot here
+        return new Resend(System.getenv("RESEND_API_KEY"));
     }
 
 }

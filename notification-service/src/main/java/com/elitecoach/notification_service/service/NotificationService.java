@@ -44,39 +44,11 @@ public class NotificationService {
     @Autowired
     private NotificationMapper notificationMapper;
 
-    @Value("${RESEND.key}")
-    private String apiKey;
-
     @Autowired
     private NotificationProducer notificationProducer;
 
     public void sendSimpleMail(EmailRequest emailRequest) {
         notificationProducer.handleEmailNotification("email.send", emailRequest);
-    }
-
-    private void sendWithResend(EmailRequest emailRequest) {
-        try {
-            String response = WebClient.create("https://api.resend.com")
-                    .post()
-                    .uri("/emails")
-                    .header("Authorization", "Bearer " + apiKey)
-                    .header("Content-Type", "application/json")
-                    .bodyValue(Map.of(
-                            "from", "onboarding@resend.dev",
-                            "to", emailRequest.getTo(),
-                            "subject", emailRequest.getSubject(),
-                            "html", "<p>" + emailRequest.getBody() + "</p>"
-                    ))
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block();
-
-            log.info("Resend success: {}", response);
-
-        } catch (Exception e) {
-            log.error("Resend failed FULL ERROR:", e); // ✅ VERY IMPORTANT
-            throw new RuntimeException("All email providers failed", e);
-        }
     }
 
     public void createNotificationPreferences(NotificationRequest notificationRequest, UserRequest userRequest) {

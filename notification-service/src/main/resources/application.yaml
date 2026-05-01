@@ -59,12 +59,5 @@ INTERSWITCH:
 rabbitmq:
   uri: ${RABBITMQ_URL}
 
-
-RESEND:
-  key: ${RESEND_API_KEY}
-
-sendgrid:
-  api-key: ${sendKey}
-
 server:
   port: 8082

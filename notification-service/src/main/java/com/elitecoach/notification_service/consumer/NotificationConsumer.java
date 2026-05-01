@@ -5,6 +5,8 @@ import com.elitecoach.notification_service.request.EmailRequest;
 import com.elitecoach.notification_service.request.WhatsappRequest;
 import com.elitecoach.notification_service.service.MessageBodyService;
 import com.elitecoach.notification_service.service.NotificationService;
+import com.resend.Resend;
+import com.resend.services.emails.model.CreateEmailOptions;
 import jakarta.annotation.PostConstruct;
 import jakarta.mail.internet.InternetAddress;
 import lombok.*;
@@ -30,6 +32,8 @@ public class NotificationConsumer {
     @Autowired
     private MessageBodyService messageBodyService;
     private SimpleMailMessage simpleMailMessage;
+    @Autowired
+    private Resend resend;
 
     @PostConstruct
     public void init() {
@@ -93,17 +97,34 @@ public class NotificationConsumer {
         notificationService.sendSimpleMail(emailRequest);
     }
 
-    @RabbitListener(queues = "#{emailQueue.name}")
+    @RabbitListener(queues = "email-queue")
     public void sendNotificationEmail(EmailRequest emailRequest) {
-        try {
-            simpleMailMessage.setTo(emailRequest.getTo());
-            simpleMailMessage.setSubject(emailRequest.getSubject());
-            simpleMailMessage.setText(emailRequest.getBody());
+        sendNotificationEmail2(emailRequest);
+    }
 
-            javaMailSender.send(simpleMailMessage);
-        } catch (MailException ex) {
-            // ✅ Only fallback for MAIL-related issues
-            log.error("SMTP failed, switching to Resend: {}", ex.getMessage());
+    public void sendNotificationEmail2(EmailRequest emailRequest) {
+        CreateEmailOptions params = CreateEmailOptions.builder()
+                .from("onboarding@resend.dev") // Switch to your domain once verified
+                .to(emailRequest.getTo())
+                .subject(emailRequest.getSubject())
+                .html("<strong>" + emailRequest.getBody() + "</strong>")
+                .build();
+
+        try {
+            resend.emails().send(params);
+        } catch (Exception e) {
+            // Log the error or send to a Dead Letter Queue
+            System.err.println("Resend failed: " + e.getMessage());
+            try {
+                simpleMailMessage.setTo(emailRequest.getTo());
+                simpleMailMessage.setSubject(emailRequest.getSubject());
+                simpleMailMessage.setText(emailRequest.getBody());
+
+                javaMailSender.send(simpleMailMessage);
+            } catch (MailException ex) {
+                // ✅ Only fallback for MAIL-related issues
+                log.error("SMTP failed, switching to Resend: {}", ex.getMessage());
+            }
         }
     }
 }
