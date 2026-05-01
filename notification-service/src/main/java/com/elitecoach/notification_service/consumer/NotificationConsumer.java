@@ -35,13 +35,6 @@ public class NotificationConsumer {
     @Autowired
     private MessageBodyService messageBodyService;
 
-    private final SendGrid sendGrid;
-
-    // Inject the SendGrid bean (configured in a @Configuration class)
-    public NotificationConsumer(SendGrid sendGrid) {
-        this.sendGrid = sendGrid;
-    }
-
     @RabbitListener(queues = RabbitMQConfig.QUEUE_NAME)
     public void handleEvent(Map<String, Object> event) {
 
@@ -83,30 +76,5 @@ public class NotificationConsumer {
                         .build();
 
         notificationService.sendSimpleMail(emailRequest);
-    }
-
-    @RabbitListener(queues = "#{emailQueue.name}")
-    public void sendNotificationEmail(EmailRequest emailRequest) {
-        Email from = new Email("fakorodehenry@gmail.com");
-        Email to = new Email(emailRequest.getTo());
-        Content content = new Content("text/plain", emailRequest.getBody());
-        Mail mail = new Mail(from, emailRequest.getSubject(), to, content);
-
-        Request request = new Request();
-        try {
-            request.setMethod(Method.POST);
-            request.setEndpoint("mail/send");
-            request.setBody(mail.build());
-
-            Response response = sendGrid.api(request);
-
-            if (response.getStatusCode() >= 400) {
-                log.error("SendGrid error: {} - {}", response.getStatusCode(), response.getBody());
-                // Optionally throw an exception here to trigger RabbitMQ retries
-            }
-        } catch (IOException ex) {
-            log.error("Failed to send email due to network error", ex);
-            throw new AmqpRejectAndDontRequeueException(ex); // Send to Dead Letter Queue
-        }
     }
 }
