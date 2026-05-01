@@ -10,16 +10,8 @@ import com.elitecoach.notification_service.request.UserRequest;
 import com.elitecoach.notification_service.request.WhatsappRequest;
 import com.elitecoach.notification_service.response.AccessTokenResponse;
 import com.elitecoach.notification_service.response.WhatsappNotificationResponse;
-import com.sendgrid.Method;
-import com.sendgrid.Request;
-import com.sendgrid.Response;
-import com.sendgrid.SendGrid;
-import com.sendgrid.helpers.mail.Mail;
-import com.sendgrid.helpers.mail.objects.Content;
-import com.sendgrid.helpers.mail.objects.Email;
 import jakarta.mail.internet.InternetAddress;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -30,7 +22,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.Base64;
 import java.util.HashMap;
@@ -57,33 +48,10 @@ public class NotificationService {
     private String apiKey;
 
     @Autowired
-    private SendGrid sendGrid;
-
-    @Autowired
     private NotificationProducer notificationProducer;
 
     public void sendSimpleMail(EmailRequest emailRequest) {
-        Email from = new Email("fakorodehenry@gmail.com");
-        Email to = new Email(emailRequest.getTo());
-        Content content = new Content("text/plain", emailRequest.getBody());
-        Mail mail = new Mail(from, emailRequest.getSubject(), to, content);
-
-        Request request = new Request();
-        try {
-            request.setMethod(Method.POST);
-            request.setEndpoint("mail/send");
-            request.setBody(mail.build());
-
-            Response response = sendGrid.api(request);
-
-            if (response.getStatusCode() >= 400) {
-                log.error("SendGrid error: {} - {}", response.getStatusCode(), response.getBody());
-                // Optionally throw an exception here to trigger RabbitMQ retries
-            }
-        } catch (IOException ex) {
-            log.error("Failed to send email due to network error", ex);
-            throw new AmqpRejectAndDontRequeueException(ex); // Send to Dead Letter Queue
-        }
+        notificationProducer.handleEmailNotification("email.send", emailRequest);
     }
 
     private void sendWithResend(EmailRequest emailRequest) {

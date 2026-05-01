@@ -65,3 +65,6 @@ RESEND:
 
 sendgrid:
   api-key: ${sendKey}
+
+server:
+  port: 8082
