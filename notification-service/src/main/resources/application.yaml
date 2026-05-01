@@ -61,3 +61,7 @@ rabbitmq:
 
 server:
   port: 8082
+
+brevo:
+  api:
+    key: ${BREVO}

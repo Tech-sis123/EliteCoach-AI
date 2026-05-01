@@ -5,8 +5,6 @@ import com.elitecoach.notification_service.request.EmailRequest;
 import com.elitecoach.notification_service.request.WhatsappRequest;
 import com.elitecoach.notification_service.service.MessageBodyService;
 import com.elitecoach.notification_service.service.NotificationService;
-import com.resend.Resend;
-import com.resend.services.emails.model.CreateEmailOptions;
 import jakarta.annotation.PostConstruct;
 import jakarta.mail.internet.InternetAddress;
 import lombok.*;
@@ -18,8 +16,18 @@ import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
+import sendinblue.ApiClient;
+import sendinblue.ApiException;
+import sendinblue.Configuration;
+import sendinblue.auth.ApiKeyAuth;
+import sibApi.TransactionalEmailsApi;
+import sibModel.CreateSmtpEmail;
+import sibModel.SendSmtpEmail;
+import sibModel.SendSmtpEmailSender;
+import sibModel.SendSmtpEmailTo;
 
 import java.io.UnsupportedEncodingException;
+import java.util.Collections;
 import java.util.Map;
 
 @Service
@@ -32,8 +40,9 @@ public class NotificationConsumer {
     @Autowired
     private MessageBodyService messageBodyService;
     private SimpleMailMessage simpleMailMessage;
-    @Autowired
-    private Resend resend;
+    @Value("${brevo.api.key}")
+    private String BREVO_APIKEY;
+
 
     @PostConstruct
     public void init() {
@@ -99,32 +108,26 @@ public class NotificationConsumer {
 
     @RabbitListener(queues = "email-queue")
     public void sendNotificationEmail(EmailRequest emailRequest) {
-        sendNotificationEmail2(emailRequest);
-    }
+        ApiClient defaultClient = Configuration.getDefaultApiClient();
 
-    public void sendNotificationEmail2(EmailRequest emailRequest) {
-        CreateEmailOptions params = CreateEmailOptions.builder()
-                .from("onboarding@resend.dev") // Switch to your domain once verified
-                .to(emailRequest.getTo())
-                .subject(emailRequest.getSubject())
-                .html("<strong>" + emailRequest.getBody() + "</strong>")
-                .build();
+        // Configure API key authorization: api-key
+        ApiKeyAuth apiKey = (ApiKeyAuth) defaultClient.getAuthentication("api-key");
+        apiKey.setApiKey(BREVO_APIKEY);
+
+        TransactionalEmailsApi apiInstance = new TransactionalEmailsApi();
+
+        SendSmtpEmail sendSmtpEmail = new SendSmtpEmail();
+        sendSmtpEmail.setSender(new SendSmtpEmailSender().name("Elite Coach").email("fakorodehenry@gmail.com"));
+        sendSmtpEmail.setTo(Collections.singletonList(new SendSmtpEmailTo().email(emailRequest.getTo()).name(emailRequest.getTo())));
+        sendSmtpEmail.setSubject(emailRequest.getSubject());
+        sendSmtpEmail.setHtmlContent("<html><body><h1>" + emailRequest.getBody() + "</h1><p>Ready to play?</p></body></html>");
 
         try {
-            resend.emails().send(params);
-        } catch (Exception e) {
-            // Log the error or send to a Dead Letter Queue
-            System.err.println("Resend failed: " + e.getMessage());
-            try {
-                simpleMailMessage.setTo(emailRequest.getTo());
-                simpleMailMessage.setSubject(emailRequest.getSubject());
-                simpleMailMessage.setText(emailRequest.getBody());
-
-                javaMailSender.send(simpleMailMessage);
-            } catch (MailException ex) {
-                // ✅ Only fallback for MAIL-related issues
-                log.error("SMTP failed, switching to Resend: {}", ex.getMessage());
-            }
+            CreateSmtpEmail result = apiInstance.sendTransacEmail(sendSmtpEmail);
+            System.out.println("Email sent successfully: " + result.getMessageId());
+        } catch (ApiException e) {
+            System.err.println("Exception when calling TransactionalEmailsApi#sendTransacEmail");
+            e.printStackTrace();
         }
     }
 }
