@@ -87,7 +87,7 @@ public class NotificationConsumer {
 
     @RabbitListener(queues = "#{emailQueue.name}")
     public void sendNotificationEmail(EmailRequest emailRequest) {
-        Email from = new Email("notifications@yourdomain.com");
+        Email from = new Email("fakorodehenry@gmail.com");
         Email to = new Email(emailRequest.getTo());
         Content content = new Content("text/plain", emailRequest.getBody());
         Mail mail = new Mail(from, emailRequest.getSubject(), to, content);
