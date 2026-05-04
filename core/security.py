@@ -9,10 +9,10 @@ logger = logging.getLogger(__name__)
 security = HTTPBearer(auto_error=False)
 
 
-async def get_current_user(request: Request) -> dict:
-    """Extract and validate user from JWT token"""
+async def get_current_user(request: Request) -> Optional[dict]:
+    """Extract and validate user from JWT token, skipping for OPTIONS requests."""
     if request.method == "OPTIONS":
-        return {}
+        return None
     
     # Get Authorization header
     authorization: str = request.headers.get("Authorization")

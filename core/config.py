@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     # OpenAI Configuration
     OPENAI_API_KEY: str = ""
     
+    # Pinecone Configuration
+    PINECONE_API_KEY: str = ""
+    PINECONE_ENVIRONMENT: str = "us-east-1"
+    PINECONE_INDEX_NAME: str = "elitecoach"
+    
     # Identity Service (Microservice)
     IDENTITY_SERVICE_URL: str = "http://localhost:8083"
     

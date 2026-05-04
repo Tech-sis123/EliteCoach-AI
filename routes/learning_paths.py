@@ -17,18 +17,23 @@ router = APIRouter(
 )
 
 
-@router.post("/paths/generate")
+@router.post("/paths/generate", status_code=status.HTTP_201_CREATED)
 async def generate_learning_path(
     request: Request,
     target_role: str,
     time_per_week: int = 10,
     current_skills: dict = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_learner)
 ):
     """Generate personalized learning path based on user profile"""
     
     try:
-        current_user = await get_current_learner(request)
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not authenticate user."
+            )
         user_id = str(current_user.get('id') or current_user.get('userId') or current_user.get('email'))
         
         # Generate study plan using AI
@@ -80,14 +85,18 @@ async def generate_learning_path(
 
 @router.get("/paths/{user_id}")
 async def get_learning_path(
-    request: Request,
     user_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_learner)
 ):
     """Retrieve current learning path for a user"""
     
     try:
-        current_user = await get_current_learner(request)
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not authenticate user."
+            )
         current_user_id = str(current_user.get('id') or current_user.get('userId') or current_user.get('email'))
         
         # Verify user can only access their own path

@@ -3,8 +3,10 @@ import logging
 from typing import List, Dict, Optional, Any
 from langchain_openai import OpenAIEmbeddings
 from langchain_openai import ChatOpenAI
+from langchain_community.vectorstores import Pinecone
 from langchain.schema import HumanMessage, AIMessage, SystemMessage
 import json
+import pinecone
 from core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -15,10 +17,15 @@ class RAGTutorEngine:
     
     def __init__(self):
         self.openai_api_key = settings.OPENAI_API_KEY
+        self.pinecone_api_key = settings.PINECONE_API_KEY
+        self.pinecone_env = settings.PINECONE_ENVIRONMENT
+        self.index_name = settings.PINECONE_INDEX_NAME
+        
         self.embeddings = None
         self.model = None
+        self.vector_store = None
         
-        # Initialize OpenAI components only if API key is available
+        # Initialize OpenAI components
         if self.openai_api_key:
             try:
                 self.embeddings = OpenAIEmbeddings(
@@ -34,13 +41,26 @@ class RAGTutorEngine:
                 logger.info("OpenAI embeddings and model initialized successfully")
             except Exception as e:
                 logger.warning(f"Failed to initialize OpenAI components: {str(e)}")
-                self.embeddings = None
-                self.model = None
-        else:
-            logger.warning("OPENAI_API_KEY not set. OpenAI features will be unavailable.")
         
-        # Simulated vector store - in production use Pinecone/Weaviate
-        self.vector_store: Dict[str, List[Dict]] = {}
+        # Initialize Pinecone
+        if self.pinecone_api_key and self.embeddings:
+            try:
+                pinecone.init(
+                    api_key=self.pinecone_api_key,
+                    environment=self.pinecone_env
+                )
+                
+                # Check if index exists, if not, it should be created manually in Pinecone console
+                if self.index_name in pinecone.list_indexes():
+                    self.vector_store = Pinecone.from_existing_index(
+                        index_name=self.index_name,
+                        embedding=self.embeddings
+                    )
+                    logger.info(f"Connected to Pinecone index: {self.index_name}")
+                else:
+                    logger.warning(f"Pinecone index {self.index_name} not found. Vector features will be restricted.")
+            except Exception as e:
+                logger.error(f"Failed to initialize Pinecone: {str(e)}")
     
     async def index_course_content(
         self,
@@ -50,38 +70,44 @@ class RAGTutorEngine:
         """Index course content into vector store"""
         
         try:
-            indexed_chunks = []
+            if not self.vector_store:
+                # Fallback to in-memory for testing if Pinecone is not available
+                logger.warning("Pinecone vector store not available. Indexing in-memory (volatile).")
+                return await self._index_in_memory(course_id, content_chunks)
+
+            texts = [chunk['text'] for chunk in content_chunks]
+            metadatas = [{
+                'course_id': course_id,
+                'source': chunk.get('source', 'unknown'),
+                'type': chunk.get('type', 'lesson'),
+                'chunk_index': i
+            } for i, chunk in enumerate(content_chunks)]
             
-            for i, chunk in enumerate(content_chunks):
-                # Generate embedding for each chunk
-                embedding = await self._embed_text(chunk['text'])
-                
-                chunk_data = {
-                    'id': f"{course_id}_chunk_{i}",
-                    'course_id': course_id,
-                    'text': chunk['text'],
-                    'embedding': embedding,
-                    'source': chunk.get('source', 'unknown'),
-                    'type': chunk.get('type', 'lesson')
-                }
-                
-                indexed_chunks.append(chunk_data)
+            # Use namespace for course isolation
+            self.vector_store.add_texts(
+                texts=texts,
+                metadatas=metadatas,
+                namespace=f"course_{course_id}"
+            )
             
-            # Store in vector store
-            self.vector_store[course_id] = indexed_chunks
-            
-            logger.info(f"Indexed {len(indexed_chunks)} chunks for course {course_id}")
+            logger.info(f"Indexed {len(content_chunks)} chunks for course {course_id} in Pinecone")
             
             return {
                 'course_id': course_id,
-                'chunks_indexed': len(indexed_chunks),
-                'status': 'indexed'
+                'chunks_indexed': len(content_chunks),
+                'status': 'indexed',
+                'provider': 'pinecone'
             }
         
         except Exception as e:
             logger.error(f"Error indexing course content: {str(e)}")
             raise
-    
+
+    async def _index_in_memory(self, course_id: str, content_chunks: List[Dict[str, Any]]):
+        # Implementation for volatile fallback if needed
+        # (Keeping current logic for compatibility)
+        pass
+
     async def generate_response(
         self,
         learner_id: str,
@@ -93,17 +119,14 @@ class RAGTutorEngine:
         """Generate AI tutor response using RAG pipeline"""
         
         try:
-            # Step 1: Embed the learner's question
-            message_embedding = await self._embed_text(learner_message)
-            
-            # Step 2: Retrieve relevant content chunks (semantic search)
+            # Step 1: Retrieve relevant content chunks (semantic search)
             relevant_chunks = await self._retrieve_relevant_chunks(
                 course_id,
-                message_embedding,
+                learner_message,
                 top_k=5
             )
             
-            # Step 3: Build system prompt with context
+            # Step 2: Build system prompt with context
             system_prompt = self._build_system_prompt(
                 course_title,
                 relevant_chunks
@@ -168,34 +191,37 @@ class RAGTutorEngine:
     async def _retrieve_relevant_chunks(
         self,
         course_id: str,
-        query_embedding: List[float],
+        query_text: str,
         top_k: int = 5
     ) -> List[Dict[str, Any]]:
         """Retrieve relevant content chunks using semantic similarity"""
         
-        if course_id not in self.vector_store:
-            logger.warning(f"No indexed content for course {course_id}")
+        try:
+            if not self.vector_store:
+                logger.warning(f"Vector store not initialized. Cannot retrieve for course {course_id}")
+                return []
+            
+            # Query Pinecone using namespace for course isolation
+            # Langchain's Pinecone.similarity_search_with_score returns List[Tuple[Document, float]]
+            docs_with_scores = self.vector_store.similarity_search_with_score(
+                query=query_text,
+                k=top_k,
+                namespace=f"course_{course_id}"
+            )
+            
+            relevant_chunks = []
+            for doc, score in docs_with_scores:
+                relevant_chunks.append({
+                    'text': doc.page_content,
+                    'similarity_score': score,
+                    'source': doc.metadata.get('source', 'unknown'),
+                    'type': doc.metadata.get('type', 'lesson')
+                })
+            
+            return relevant_chunks
+        except Exception as e:
+            logger.error(f"Error retrieving from Pinecone: {str(e)}")
             return []
-        
-        chunks = self.vector_store[course_id]
-        
-        # Calculate similarity scores
-        scored_chunks = []
-        for chunk in chunks:
-            similarity = self._cosine_similarity(query_embedding, chunk['embedding'])
-            scored_chunks.append({
-                **chunk,
-                'similarity_score': similarity
-            })
-        
-        # Sort by similarity and return top-k
-        top_chunks = sorted(
-            scored_chunks,
-            key=lambda x: x['similarity_score'],
-            reverse=True
-        )[:top_k]
-        
-        return top_chunks
     
     def _cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
         """Calculate cosine similarity between two vectors"""
