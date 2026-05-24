@@ -48,6 +48,13 @@ coverage.xml
 *.cover
 *.py,cover
 .performance/
+
+# Database maintenance scripts
+clear_db_users.py
+migrate_v1.py
+clean_db.py
+fix_org.py
+seed_data.py
 .pytest_cache/
 pytestdebug.log
 
