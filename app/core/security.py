@@ -4,9 +4,13 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from app.core.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Deprecation fix for passlib + bcrypt 4.0.0+
+# Passlib hasn't been updated to handle bcrypt 4.0 metadata correctly
+pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
 
 def hash_password(password: str) -> str:
+    # bcrypt allows max 72 bytes. passlib handles truncation safely internally,
+    # but some bcrypt versions throw ValueError.
     return pwd_context.hash(password)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
