@@ -159,7 +159,6 @@ Desktop.ini
 # Project specific ignores
 *.log
 debug_*.py
-test_*.py
 fix_org.py
 clean_db.py
 seed_data.py
