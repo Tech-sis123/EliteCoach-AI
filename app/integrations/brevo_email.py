@@ -13,7 +13,7 @@ class BrevoClient:
 
     async def send_email(self, to_email: str, subject: str, html_content: str):
         payload = {
-            "sender": {"name": "Elite Coach AI", "email": "noreply@elitecoach.ai"},
+            "sender": {"name": "Elite Coach AI", "email": "fakorodehenry@gmail.com"},
             "to": [{"email": to_email}],
             "subject": subject,
             "htmlContent": html_content
