@@ -154,8 +154,8 @@ async def cancel_subscription(
     await db.commit()
     return {"message": "Subscription cancelled"}
 
-@router.get("/invoices")
-async def list_invoices(
+@router.get("/admin/invoices")
+async def list_admin_invoices(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
