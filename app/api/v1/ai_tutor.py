@@ -64,7 +64,7 @@ async def get_escalation_status(
     return {
         "is_escalated": esc is not None,
         "status": esc.status if esc else None,
-        "resolved": esc.resolved if esc else False
+        "resolved": esc.status == "resolved" if esc else False
     }
 
 @router.get("/learning/lesson/{id}/checks", response_model=List[KnowledgeCheckRead])

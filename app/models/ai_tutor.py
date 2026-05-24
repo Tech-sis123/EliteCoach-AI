@@ -23,6 +23,9 @@ class LessonSession(Base, BaseMixin):
     summary: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     status: Mapped[SessionStatus] = mapped_column(SQLEnum(SessionStatus), default=SessionStatus.ACTIVE)
 
+    lesson: Mapped["Lesson"] = relationship("Lesson")
+    learner: Mapped["User"] = relationship("User")
+
 class SessionMessage(Base, BaseMixin):
     __tablename__ = "session_messages"
     
