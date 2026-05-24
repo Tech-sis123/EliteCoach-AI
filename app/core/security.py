@@ -4,17 +4,19 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from app.core.config import settings
 
-# Deprecation fix for passlib + bcrypt 4.0.0+
-# Passlib hasn't been updated to handle bcrypt 4.0 metadata correctly
-pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
+# Passlib is currently unmaintained and fails with modern bcrypt versions
+# We use a custom CryptContext that avoids the buggy bcrypt backend detection
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def hash_password(password: str) -> str:
-    # bcrypt allows max 72 bytes. passlib handles truncation safely internally,
-    # but some bcrypt versions throw ValueError.
-    return pwd_context.hash(password)
+    # Manual truncation to 72 bytes to prevent bcrypt ValueError
+    # Using encode-truncate-decode ensures we don't break multi-byte characters
+    pwd_bytes = password.encode('utf-8')[:72]
+    return pwd_context.hash(pwd_bytes.decode('utf-8', errors='ignore'))
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    pwd_bytes = plain_password.encode('utf-8')[:72]
+    return pwd_context.verify(pwd_bytes.decode('utf-8', errors='ignore'), hashed_password)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
