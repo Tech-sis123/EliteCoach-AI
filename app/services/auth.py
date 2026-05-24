@@ -68,8 +68,22 @@ class AuthService:
         query = select(User).where(User.email == email).options(selectinload(User.roles))
         result = await db.execute(query)
         user = result.scalar_one_or_none()
+        
         if not user or not verify_password(password, user.hashed_password):
             return None
+            
+        if not user.email_verified_at:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, 
+                detail="Please verify your email address before logging in."
+            )
+            
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, 
+                detail="Your account has been deactivated."
+            )
+            
         return user
 
     async def create_tokens_for_user(self, db: AsyncSession, user: User):
