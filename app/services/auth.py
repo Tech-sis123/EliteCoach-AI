@@ -14,16 +14,25 @@ class AuthService:
         return hashlib.sha256(token.encode()).hexdigest()
 
     async def register_user(self, db: AsyncSession, user_in: UserCreate):
+        import secrets
+        import string
+        from app.services.notification import notification_service
+
         query = select(User).where(User.email == user_in.email)
         result = await db.execute(query)
         if result.scalar_one_or_none():
             raise HTTPException(status_code=400, detail="Email already registered")
         
+        # Generate 4-digit OTP
+        otp = ''.join(secrets.choice(string.digits) for _ in range(4))
+        verification_token_hash = self._hash_token(otp)
+
         db_user = User(
             email=user_in.email,
             hashed_password=hash_password(user_in.password),
             full_name=user_in.full_name,
             phone=user_in.phone,
+            verification_token_hash=verification_token_hash
         )
         db.add(db_user)
         await db.flush()
@@ -34,6 +43,25 @@ class AuthService:
         
         await db.commit()
         await db.refresh(db_user)
+
+        # Send Verification Email with OTP
+        html_content = f"""
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
+                <h1 style="color: #333;">Welcome to Elite Coach AI</h1>
+                <p>Hello {db_user.full_name},</p>
+                <p>Thank you for signing up. Please use the following code to verify your email address:</p>
+                <div style="background: #f4f4f4; padding: 15px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #007bff; margin: 20px 0;">
+                    {otp}
+                </div>
+                <p>This code will expire shortly. If you did not create an account, please ignore this email.</p>
+            </div>
+        """
+        await notification_service.send_email(
+            email=db_user.email,
+            subject="Your Verification Code - Elite Coach AI",
+            html_content=html_content
+        )
+        
         return db_user
 
     async def authenticate_user(self, db: AsyncSession, email: str, password: str):
