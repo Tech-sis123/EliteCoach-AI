@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_db, get_current_user
 from app.models.notification import Notification
 from app.models.users import User
-from sqlalchemy import select, update
+from sqlalchemy import select, update, and_
 import uuid
 from typing import List
 
@@ -29,6 +29,19 @@ async def mark_notification_as_read(
     await db.execute(
         update(Notification).where(
             (Notification.id == notification_id) & (Notification.user_id == current_user.id)
+        ).values(is_read=True)
+    )
+    await db.commit()
+    return {"status": "success"}
+@router.post("/read-all")
+async def mark_all_notifications_as_read(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Mark all notifications as read for the current user."""
+    await db.execute(
+        update(Notification).where(
+            Notification.user_id == current_user.id
         ).values(is_read=True)
     )
     await db.commit()

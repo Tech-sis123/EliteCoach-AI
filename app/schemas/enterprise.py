@@ -42,3 +42,17 @@ class LearnerOrgRead(BaseModel):
 class InvitationCreate(BaseModel):
     email: str
     team_id: Optional[uuid.UUID] = None
+
+class TeamCreate(BaseModel):
+    name: str
+
+class TeamRead(BaseModel):
+    id: uuid.UUID
+    name: str
+    org_id: uuid.UUID
+    model_config = ConfigDict(from_attributes=True)
+
+class UserImport(BaseModel):
+    email: str
+    full_name: str
+    team_name: Optional[str] = None

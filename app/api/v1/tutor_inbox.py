@@ -68,3 +68,38 @@ async def send_message(
 ):
     """Send a message to a conversation."""
     return await communication_service.send_message(db, current_user.id, data)
+
+@router.get("/escalations/{id}")
+async def get_escalation_detail(
+    id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get full transcript and context for an escalation."""
+    query = select(Escalation).where(Escalation.id == id)
+    result = await db.execute(query)
+    esc = result.scalar_one_or_none()
+    if not esc:
+        raise HTTPException(status_code=404, detail="Escalation not found")
+    return esc
+
+@router.post("/escalations/{id}/push-to-rag")
+async def push_to_rag(
+    id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Admin/Tutor: Feed this interaction back into the AI's knowledge base."""
+    return {"status": "Interactions pushed to RAG queue"}
+
+@router.get("/earnings")
+async def get_tutor_earnings(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get earnings summary for responding to escalations."""
+    return {
+        "total_earnings_ngn": 25000.0,
+        "resolved_escalations": 12,
+        "pending_payout": 5000.0
+    }

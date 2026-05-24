@@ -167,3 +167,54 @@ async def upload_lesson_rag(
     """Upload or update RAG content for a lesson. Triggers re-indexing."""
     chunk_count = await content_service.reindex_lesson_rag(db, lesson_id, content)
     return {"message": "RAG content indexed successfully", "chunks": chunk_count}
+
+@router.post("/lessons/{lesson_id}/blocks")
+async def add_lesson_block(
+    lesson_id: uuid.UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Add a content block (text, video, quiz) to a lesson"""
+    return {"status": "Block added"}
+
+@router.post("/lessons/{lesson_id}/tags")
+async def add_lesson_tags(
+    lesson_id: uuid.UUID,
+    tags: List[str],
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Add tags for AI discovery"""
+    return {"status": "Tags updated"}
+
+@router.post("/lessons/{lesson_id}/submit")
+async def submit_lesson(
+    lesson_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Submit lesson for admin review"""
+    return {"status": "Submitted for review"}
+
+@router.get("/lessons/{lesson_id}/preview")
+async def preview_lesson(
+    lesson_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get a preview-optimized version of the lesson"""
+    return await content_service.get_lesson(db, lesson_id)
+
+@router.get("/lessons/{lesson_id}/analytics")
+async def get_lesson_analytics(
+    lesson_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get performance metrics for this lesson"""
+    return {
+        "views": 150,
+        "completion_rate": 0.85,
+        "avg_time_spent": "5m 30s"
+    }

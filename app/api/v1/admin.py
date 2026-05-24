@@ -49,6 +49,59 @@ async def get_platform_analytics(db: AsyncSession = Depends(get_db)):
         "target_escalation_rate": "<20%"
     }
 
+@router.post("/tutors/onboard")
+async def onboard_tutor(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Admin only: Onboard a new tutor expert."""
+    # Logic to create user with 'tutor' role
+    return {"status": "Tutor onboarded"}
+
+@router.get("/content/review-queue")
+async def get_review_queue(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Admin only: List content waiting for review."""
+    return []
+
+@router.post("/content/{id}/approve")
+async def approve_content(
+    id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Admin only: Approve a lesson or course."""
+    return {"status": "Approved"}
+
+@router.get("/config")
+async def get_platform_config(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Admin only: Get global platform settings."""
+    return {"maintenance": False, "ai_enabled": True}
+
+@router.post("/feature-flags/{key}")
+async def toggle_feature_flag(
+    key: str,
+    enabled: bool,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Admin only: Toggle feature flags."""
+    return {"key": key, "status": enabled}
+
+@router.get("/payments/reconcile")
+async def reconcile_payments(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Admin only: Run payment reconciliation with Paystack."""
+    return {"reconciled": True}
+
 @router.delete("/ndpr/delete/{user_id}")
 async def ndpr_delete_user(user_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     """

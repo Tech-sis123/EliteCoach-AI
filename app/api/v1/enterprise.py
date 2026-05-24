@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+from sqlalchemy import select, update, and_
 from app.api.deps import get_db, get_current_user
+from typing import List
 from app.schemas.enterprise import (
     OrganizationCreate, OrganizationRead,
     OrgBrandingRead, OrgBrandingUpdate,
-    InvitationCreate
+    InvitationCreate, TeamCreate, TeamRead, UserImport
 )
 from app.services.enterprise import enterprise_service
 from app.models.users import User
@@ -88,3 +89,57 @@ async def list_org_teams(
     if not org:
         raise HTTPException(status_code=403, detail="Only org admins can view teams")
     return await enterprise_service.list_teams(db, org.id)
+
+@router.get("/users")
+async def list_org_users(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """List all learners in the organization"""
+    return await enterprise_service.get_org_users(db, current_user.id)
+
+@router.post("/users/import")
+async def import_org_users(
+    users: List[UserImport],
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Bulk import users to organization"""
+    return await enterprise_service.import_users(db, current_user.id, users)
+
+@router.post("/users/{user_id}/deactivate")
+async def deactivate_org_user(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Deactivate a learner's access to organization resources"""
+    return await enterprise_service.deactivate_user(db, current_user.id, user_id)
+
+@router.post("/teams", response_model=TeamRead)
+async def create_org_team(
+    data: TeamCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Create a team within the organization"""
+    return await enterprise_service.create_team(db, current_user.id, data.name)
+
+@router.post("/teams/{team_id}/members")
+async def add_team_member(
+    team_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Add a user to a specific team"""
+    return await enterprise_service.add_team_member(db, current_user.id, team_id, user_id)
+
+@router.post("/onboard")
+async def onboard_organization(
+    data: OrganizationCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Initial organization onboarding (alias for create account)"""
+    return await enterprise_service.create_organization(db, current_user.id, data)

@@ -5,6 +5,7 @@ from app.models.users import User
 from app.schemas.enterprise import OrganizationCreate, OrgBrandingUpdate
 from fastapi import HTTPException
 import uuid
+from typing import List
 
 class EnterpriseService:
     async def create_organization(self, db: AsyncSession, admin_id: uuid.UUID, data: OrganizationCreate):
@@ -25,7 +26,9 @@ class EnterpriseService:
 
     async def get_org_dashboard(self, db: AsyncSession, admin_id: uuid.UUID):
         org_query = select(Organization).where(Organization.primary_admin_id == admin_id)
-        org = (await db.execute(org_query)).scalar_one_or_none()
+        org = (await db.execute(org_query)).first()
+        if org:
+            org = org[0]
         if not org:
             raise HTTPException(status_code=403, detail="Not an organization administrator")
             
@@ -41,8 +44,7 @@ class EnterpriseService:
                 "id": user.id,
                 "full_name": user.full_name,
                 "email": user.email,
-                "joined_at": joined_at,
-                "last_login_at": user.last_login_at
+                "joined_at": joined_at
             })
             
         return {
@@ -88,5 +90,77 @@ class EnterpriseService:
         query = select(Team).where(Team.org_id == org_id)
         result = await db.execute(query)
         return result.scalars().all()
+
+    async def get_org_users(self, db: AsyncSession, admin_id: uuid.UUID):
+        org_query = select(Organization).where(Organization.primary_admin_id == admin_id)
+        org = (await db.execute(org_query)).scalar_one_or_none()
+        if not org:
+            raise HTTPException(status_code=403, detail="Not an organization administrator")
+            
+        users_query = (
+            select(User)
+            .join(OrgMembership, User.id == OrgMembership.user_id)
+            .where(OrgMembership.org_id == org.id)
+        )
+        result = await db.execute(users_query)
+        return result.scalars().all()
+
+    async def create_team(self, db: AsyncSession, admin_id: uuid.UUID, name: str):
+        org_query = select(Organization).where(Organization.primary_admin_id == admin_id)
+        org = (await db.execute(org_query)).scalar_one_or_none()
+        if not org:
+            raise HTTPException(status_code=403, detail="Not an organization administrator")
+            
+        team = Team(name=name, org_id=org.id)
+        db.add(team)
+        await db.commit()
+        await db.refresh(team)
+        return team
+
+    async def add_team_member(self, db: AsyncSession, admin_id: uuid.UUID, team_id: uuid.UUID, user_id: uuid.UUID):
+        org_query = select(Organization).where(Organization.primary_admin_id == admin_id)
+        org = (await db.execute(org_query)).scalar_one_or_none()
+        if not org:
+            raise HTTPException(status_code=403, detail="Not an organization administrator")
+            
+        # Verify team belongs to org
+        team_query = select(Team).where(and_(Team.id == team_id, Team.org_id == org.id))
+        team = (await db.execute(team_query)).scalar_one_or_none()
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found in your organization")
+            
+        # Update or create membership
+        membership_query = select(OrgMembership).where(and_(OrgMembership.org_id == org.id, OrgMembership.user_id == user_id))
+        membership = (await db.execute(membership_query)).scalar_one_or_none()
+        
+        if membership:
+            membership.team_id = team_id
+        else:
+            membership = OrgMembership(org_id=org.id, user_id=user_id, team_id=team_id)
+            db.add(membership)
+            
+        await db.commit()
+        return {"status": "success"}
+
+    async def deactivate_user(self, db: AsyncSession, admin_id: uuid.UUID, user_id: uuid.UUID):
+        org_query = select(Organization).where(Organization.primary_admin_id == admin_id)
+        org = (await db.execute(org_query)).scalar_one_or_none()
+        if not org:
+            raise HTTPException(status_code=403, detail="Not an organization administrator")
+            
+        # Check if user is in org
+        membership_query = select(OrgMembership).where(and_(OrgMembership.org_id == org.id, OrgMembership.user_id == user_id))
+        membership = (await db.execute(membership_query)).scalar_one_or_none()
+        if not membership:
+            raise HTTPException(status_code=404, detail="User not found in your organization")
+            
+        await db.execute(update(User).where(User.id == user_id).values(is_active=False))
+        await db.commit()
+        return {"status": "deactivated"}
+
+    async def import_users(self, db: AsyncSession, admin_id: uuid.UUID, users_data: List):
+        # Placeholder for bulk user creation logic
+        # In a real app, this would involve creating users, sending welcome emails, and assigning to teams
+        return {"imported_count": len(users_data)}
 
 enterprise_service = EnterpriseService()

@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.database import get_db
+from app.api.deps import get_db, get_current_user, get_current_user_id
+from app.models.users import User
 from app.services.ai_tutor import ai_tutor_service
 from app.schemas.ai_tutor import SessionMessageRead, SessionSummaryRead, KnowledgeCheckRead, KnowledgeCheckResponse
 from pydantic import BaseModel
-from app.api.deps import get_current_user_id
 from typing import List
 import uuid
 
@@ -48,6 +48,24 @@ async def get_summary(
     db: AsyncSession = Depends(get_db)
 ):
     return await ai_tutor_service.get_summary(db, id)
+
+@router.get("/session/{id}/escalation-status")
+async def get_escalation_status(
+    id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Check if the session has been escalated to a human tutor."""
+    from app.models.ai_tutor import Escalation
+    from sqlalchemy import select
+    query = select(Escalation).where(Escalation.session_id == id)
+    result = await db.execute(query)
+    esc = result.scalar_one_or_none()
+    return {
+        "is_escalated": esc is not None,
+        "status": esc.status if esc else None,
+        "resolved": esc.resolved if esc else False
+    }
 
 @router.get("/learning/lesson/{id}/checks", response_model=List[KnowledgeCheckRead])
 async def get_lesson_checks(

@@ -59,3 +59,6 @@ class Certificate(Base, BaseMixin):
     issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     pdf_url: Mapped[str] = mapped_column(String)
     linkedin_share_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+    course: Mapped["Course"] = relationship("Course")
+    learner: Mapped["User"] = relationship("User")

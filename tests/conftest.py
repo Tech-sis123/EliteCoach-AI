@@ -15,10 +15,9 @@ TestSessionLocal = async_sessionmaker(test_engine, expire_on_commit=False, class
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def setup_db():
     async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     yield
-    # async with test_engine.begin() as conn:
-    #     await conn.run_sync(Base.metadata.drop_all)
 
 @pytest_asyncio.fixture
 async def client():
@@ -39,3 +38,21 @@ async def client():
 async def db():
     async with TestSessionLocal() as session:
         yield session
+
+@pytest_asyncio.fixture
+async def token(client: AsyncClient):
+    # Register and login a user to get a token
+    email = "tester@example.com"
+    password = "testpassword123"
+    await client.post("/api/v1/auth/register", json={
+        "email": email,
+        "password": password,
+        "full_name": "Test User",
+        "phone": "+2347012345678"
+    })
+    
+    response = await client.post("/api/v1/auth/login", data={
+        "username": email,
+        "password": password
+    })
+    return response.json()["access_token"]

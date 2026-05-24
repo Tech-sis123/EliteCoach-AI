@@ -53,3 +53,12 @@ async def forgot_password(request: ForgotPasswordRequest, db: AsyncSession = Dep
 async def reset_password(token: str, request: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
     # TBD: Implementation for password reset
     return {"detail": "Password reset successfully"}
+
+@router.post("/social")
+async def social_login(
+    provider: str,
+    token: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Placeholder for Google/LinkedIn OAuth2 exchange."""
+    return {"detail": f"Social login with {provider} triggered"}
