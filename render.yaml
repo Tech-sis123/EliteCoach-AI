@@ -1,0 +1,34 @@
+services:
+    - type: web
+      name: elitecoach-backend
+      env: docker
+      plan: free
+      region: ohio
+      healthCheckPath: /health
+      envVars:
+          - key: PORT
+            value: 8000
+          - key: DATABASE_URL
+            sync: false # Set in Render Dashboard
+          - key: ANTHROPIC_API_KEY
+            sync: false # Set in Render Dashboard
+          - key: SECRET_KEY
+            generateValue: true
+          - key: ALGORITHM
+            value: HS256
+          - key: ACCESS_TOKEN_EXPIRE_MINUTES
+            value: 60
+          - key: FRONTEND_URL
+            value: "*" # Update with your frontend URL later
+          - key: PAYSTACK_SECRET_KEY
+            sync: false
+          - key: CLOUDINARY_CLOUD_NAME
+            sync: false
+          - key: CLOUDINARY_API_KEY
+            sync: false
+          - key: CLOUDINARY_API_SECRET
+            sync: false
+      # If you want to use a Render-managed database, uncomment below:
+      # databases:
+      #   - name: elitecoach_db
+      #     plan: free
