@@ -1,15 +1,28 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.database import get_db
+from app.api.deps import get_db, get_current_user
 from sqlalchemy import select, func, update
 from app.models.users import User
 from app.models.ai_tutor import Escalation, LessonSession
 from app.models.analytics import Event
 from app.models.enterprise import AdminAction
+from typing import Optional, List
 import uuid
 import json
 
 router = APIRouter()
+
+@router.get("/users")
+async def list_users(
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Admin only: List all users."""
+    query = select(User).offset(skip).limit(limit)
+    result = await db.execute(query)
+    return result.scalars().all()
 
 @router.get("/analytics/platform")
 async def get_platform_analytics(db: AsyncSession = Depends(get_db)):
@@ -68,3 +81,21 @@ async def ndpr_delete_user(user_id: uuid.UUID, db: AsyncSession = Depends(get_db
     
     await db.commit()
     return {"status": "user_anonymized"}
+
+@router.get("/audit/events")
+async def get_audit_logs(
+    event_type: Optional[str] = None,
+    user_id: Optional[uuid.UUID] = None,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Retrieve event logs with optional filtering."""
+    query = select(Event).order_by(Event.timestamp.desc()).limit(limit)
+    if event_type:
+        query = query.where(Event.event_type == event_type)
+    if user_id:
+        query = query.where(Event.actor_id == user_id)
+        
+    result = await db.execute(query)
+    return result.scalars().all()

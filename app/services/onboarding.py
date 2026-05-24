@@ -1,10 +1,13 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, insert
-from app.models.learning import LearnerProfile, DiagnosticQuestion, DiagnosticAttempt, SkillScore, Skill
-from app.models.content import Course
+from sqlalchemy import select, insert, func, desc, update
+from sqlalchemy.orm import selectinload
+from app.models.learning import LearnerProfile, DiagnosticQuestion, DiagnosticAttempt, SkillScore, Skill, LearningPath, PathItem
+from app.models.content import Course, Lesson, Module
+from app.models.analytics import Event
 from app.schemas.learning import OnboardingStart, DiagnosticSubmit
 from fastapi import HTTPException
 import uuid
+from datetime import datetime, timedelta
 
 class OnboardingService:
     async def start_onboarding(self, db: AsyncSession, user_id: uuid.UUID, data: OnboardingStart):
@@ -31,7 +34,7 @@ class OnboardingService:
         await db.flush()
         await db.commit()
         
-        # Get diagnostic questions (Simplified: 5 random for demo)
+        # Get diagnostic questions (Simplified: 10 random for demo)
         questions_query = select(DiagnosticQuestion).limit(10)
         questions_result = await db.execute(questions_query)
         return questions_result.scalars().all()
@@ -59,24 +62,117 @@ class OnboardingService:
         
         return await self.generate_learning_path(db, profile.id)
 
-    async def generate_learning_path(self, db: AsyncSession, profile_id: uuid.UUID):
-        # Fetch some courses to return a semi-valid path
-        from app.models.content import Course
-        result = await db.execute(select(Course).limit(2))
-        courses = result.scalars().all()
+    async def get_learning_path(self, db: AsyncSession, user_id: uuid.UUID):
+        query = select(LearningPath).join(LearnerProfile).where(
+            LearnerProfile.user_id == user_id,
+            LearningPath.status == "active"
+        ).options(
+            selectinload(LearningPath.items).selectinload(PathItem.course)
+        )
+        result = await db.execute(query)
+        path = result.scalar_one_or_none()
         
-        items = []
-        for i, course in enumerate(courses):
-            items.append({
-                "course_id": course.id,
-                "title": course.title,
-                "position": i + 1,
-                "status": "NOT_STARTED"
+        if not path:
+            raise HTTPException(status_code=404, detail="No active learning path found. Complete onboarding to generate your path.")
+        
+        formatted_items = []
+        for item in path.items:
+            # Subquery to get total minutes for the course
+            minutes_query = select(func.sum(Lesson.estimated_minutes)).join(Module).where(Module.course_id == item.course_id)
+            minutes_result = await db.execute(minutes_query)
+            total_minutes = minutes_result.scalar() or 0
+            
+            formatted_items.append({
+                "id": item.id,
+                "position": item.position,
+                "status": item.status,
+                "course_id": item.course_id,
+                "course_title": item.course.title,
+                "course_domain": item.course.domain,
+                "course_difficulty": item.course.difficulty,
+                "total_minutes": total_minutes,
+                "unlocked_at": item.unlocked_at
             })
             
         return {
-            "id": uuid.uuid4(),
-            "items": items
+            "id": path.id,
+            "generated_at": path.generated_at,
+            "version": path.version,
+            "status": path.status,
+            "items": formatted_items
         }
+
+    async def regenerate_learning_path(self, db: AsyncSession, user_id: uuid.UUID):
+        query = select(LearnerProfile).where(LearnerProfile.user_id == user_id)
+        result = await db.execute(query)
+        profile = result.scalar_one_or_none()
+        if not profile:
+            raise HTTPException(status_code=404, detail="Profile not found")
+
+        # Rate limit check: max 3 per 24h from events table
+        limit_query = select(func.count(Event.id)).where(
+            Event.actor_id == user_id,
+            Event.event_type == "path.regenerated",
+            Event.occurred_at > datetime.utcnow() - timedelta(hours=24)
+        )
+        limit_count = (await db.execute(limit_query)).scalar()
+        if limit_count >= 3:
+            raise HTTPException(status_code=429, detail="You can regenerate your path at most 3 times per day")
+
+        # Archive old path
+        await db.execute(
+            update(LearningPath)
+            .where(LearningPath.learner_profile_id == profile.id, LearningPath.status == "active")
+            .values(status="archived")
+        )
+        
+        # Log event
+        event = Event(
+            event_type="path.regenerated",
+            actor_id=user_id,
+            entity_type="learning_path",
+            payload={"reason": "user_request"}
+        )
+        db.add(event)
+        
+        await self.generate_learning_path(db, profile.id)
+        await db.commit()
+        
+        # Re-fetch new path decorated
+        return await self.get_learning_path(db, user_id)
+
+    async def generate_learning_path(self, db: AsyncSession, profile_id: uuid.UUID):
+        # Fetch some courses (Simplified for now)
+        result = await db.execute(select(Course).where(Course.status == "published").limit(3))
+        courses = result.scalars().all()
+        
+        if not courses:
+            # Fallback for testing if no courses are published
+            result = await db.execute(select(Course).limit(3))
+            courses = result.scalars().all()
+
+        version_query = select(func.max(LearningPath.version)).where(LearningPath.learner_profile_id == profile_id)
+        max_version = (await db.execute(version_query)).scalar() or 0
+        
+        path = LearningPath(
+            learner_profile_id=profile_id,
+            status="active",
+            version=max_version + 1
+        )
+        db.add(path)
+        await db.flush()
+        
+        for i, course in enumerate(courses):
+            item = PathItem(
+                learning_path_id=path.id,
+                course_id=course.id,
+                position=i + 1,
+                status="available" if i == 0 else "locked",
+                unlocked_at=datetime.utcnow() if i == 0 else None
+            )
+            db.add(item)
+            
+        await db.commit()
+        return path
 
 onboarding_service = OnboardingService()

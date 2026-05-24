@@ -16,6 +16,15 @@ class Organization(Base, BaseMixin):
     budget_ngn: Mapped[Optional[float]] = mapped_column(nullable=True)
     paystack_customer_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     primary_admin_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+    
+class OrgBranding(Base, BaseMixin):
+    __tablename__ = "org_branding"
+    
+    org_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"), unique=True)
+    logo_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    primary_color: Mapped[str] = mapped_column(String, default="#000000")
+    secondary_color: Mapped[str] = mapped_column(String, default="#ffffff")
+    custom_domain: Mapped[Optional[str]] = mapped_column(String, unique=True, nullable=True)
 
 class Team(Base, BaseMixin):
     __tablename__ = "teams"

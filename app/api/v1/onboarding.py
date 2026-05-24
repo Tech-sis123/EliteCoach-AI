@@ -24,3 +24,17 @@ async def submit_onboarding(
     user_id: uuid.UUID = Depends(get_current_user_id)
 ):
     return await onboarding_service.submit_diagnostic(db, user_id, data)
+
+@router.get("/path", response_model=LearningPathRead)
+async def get_initial_learning_path(
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(get_current_user_id)
+):
+    return await onboarding_service.get_learning_path(db, user_id)
+
+@router.post("/path/regenerate", response_model=LearningPathRead)
+async def regenerate_initial_learning_path(
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(get_current_user_id)
+):
+    return await onboarding_service.regenerate_learning_path(db, user_id)

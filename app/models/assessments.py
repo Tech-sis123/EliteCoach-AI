@@ -9,6 +9,7 @@ import uuid
 from datetime import datetime
 
 class AssessmentType(str, enum.Enum):
+    DIAGNOSTIC = "diagnostic"
     MODULE = "module"
     FINAL = "final"
     PRACTICAL = "practical"
@@ -32,6 +33,7 @@ class AssessmentQuestion(Base, BaseMixin):
     question_type: Mapped[str] = mapped_column(String) # mcq, short, practical
     options: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True) # For MCQ
     correct_answer: Mapped[str] = mapped_column(String)
+    explanation: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     points: Mapped[int] = mapped_column(Integer, default=1)
     position: Mapped[int] = mapped_column(Integer)
 
@@ -44,6 +46,7 @@ class AssessmentAttempt(Base, BaseMixin):
     submitted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     score: Mapped[float] = mapped_column(Float, default=0.0)
     passed: Mapped[bool] = mapped_column(Boolean, default=False)
+    ai_feedback: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     answers: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
 class Certificate(Base, BaseMixin):

@@ -1,12 +1,13 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+from sqlalchemy import select, update, delete
 from app.models.content import Course, Module, Lesson, RagChunk
-from app.schemas.content import CourseCreate, LessonCreate
+from app.schemas.content import CourseCreate, LessonCreate, ModuleCreate
 from app.core.logging import logger
 from app.integrations.openai_client import openai_client
 import uuid
 
 class ContentService:
+    # --- Course CRUD ---
     async def create_course(self, db: AsyncSession, author_id: uuid.UUID, data: CourseCreate):
         course = Course(
             **data.model_dump(),
@@ -18,22 +19,68 @@ class ContentService:
         await db.refresh(course)
         return course
 
-    async def list_courses(self, db: AsyncSession):
-        query = select(Course).where(Course.status == "published")
+    async def get_course(self, db: AsyncSession, course_id: uuid.UUID):
+        query = select(Course).where(Course.id == course_id)
+        result = await db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def update_course(self, db: AsyncSession, course_id: uuid.UUID, data: dict):
+        query = update(Course).where(Course.id == course_id).values(**data)
+        await db.execute(query)
+        await db.commit()
+        return await self.get_course(db, course_id)
+
+    async def delete_course(self, db: AsyncSession, course_id: uuid.UUID):
+        query = delete(Course).where(Course.id == course_id)
+        await db.execute(query)
+        await db.commit()
+        return True
+
+    async def update_course_status(self, db: AsyncSession, course_id: uuid.UUID, status: str):
+        query = update(Course).where(Course.id == course_id).values(status=status)
+        await db.execute(query)
+        await db.commit()
+        return True
+
+    async def list_courses(self, db: AsyncSession, status: str = None):
+        if status:
+            query = select(Course).where(Course.status == status)
+        else:
+            query = select(Course)
         result = await db.execute(query)
         return result.scalars().all()
 
-    async def list_lessons_by_course(self, db: AsyncSession, course_id: uuid.UUID):
-        # Lessons are in modules. Join them.
-        query = (
-            select(Lesson)
-            .join(Module, Lesson.module_id == Module.id)
-            .where(Module.course_id == course_id)
-            .order_by(Module.position, Lesson.position)
-        )
+    # --- Module CRUD ---
+    async def create_module(self, db: AsyncSession, data: ModuleCreate):
+        module = Module(**data.model_dump())
+        db.add(module)
+        await db.commit()
+        await db.refresh(module)
+        return module
+
+    async def get_module(self, db: AsyncSession, module_id: uuid.UUID):
+        query = select(Module).where(Module.id == module_id)
+        result = await db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def list_modules(self, db: AsyncSession, course_id: uuid.UUID):
+        query = select(Module).where(Module.course_id == course_id).order_by(Module.position)
         result = await db.execute(query)
         return result.scalars().all()
 
+    async def update_module(self, db: AsyncSession, module_id: uuid.UUID, data: dict):
+        query = update(Module).where(Module.id == module_id).values(**data)
+        await db.execute(query)
+        await db.commit()
+        return await self.get_module(db, module_id)
+
+    async def delete_module(self, db: AsyncSession, module_id: uuid.UUID):
+        query = delete(Module).where(Module.id == module_id)
+        await db.execute(query)
+        await db.commit()
+        return True
+
+    # --- Lesson CRUD ---
     async def create_lesson(self, db: AsyncSession, data: LessonCreate):
         lesson = Lesson(
             **data.model_dump(),
@@ -45,30 +92,58 @@ class ContentService:
         await db.refresh(lesson)
         return lesson
 
+    async def get_lesson(self, db: AsyncSession, lesson_id: uuid.UUID):
+        query = select(Lesson).where(Lesson.id == lesson_id)
+        result = await db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def list_lessons_by_course(self, db: AsyncSession, course_id: uuid.UUID):
+        query = (
+            select(Lesson)
+            .join(Module)
+            .where(Module.course_id == course_id)
+            .order_by(Module.position, Lesson.position)
+        )
+        result = await db.execute(query)
+        return result.scalars().all()
+    
+    async def list_lessons_by_module(self, db: AsyncSession, module_id: uuid.UUID):
+        query = select(Lesson).where(Lesson.module_id == module_id).order_by(Lesson.position)
+        result = await db.execute(query)
+        return result.scalars().all()
+
+    async def update_lesson(self, db: AsyncSession, lesson_id: uuid.UUID, data: dict):
+        query = update(Lesson).where(Lesson.id == lesson_id).values(**data)
+        await db.execute(query)
+        await db.commit()
+        return await self.get_lesson(db, lesson_id)
+
+    async def delete_lesson(self, db: AsyncSession, lesson_id: uuid.UUID):
+        query = delete(Lesson).where(Lesson.id == lesson_id)
+        await db.execute(query)
+        await db.commit()
+        return True
+
     async def reindex_lesson_rag(self, db: AsyncSession, lesson_id: uuid.UUID, text_content: str):
         """
-        Celery task logic placeholder for re-indexing RAG chunks.
         Splits text, generates embeddings, and saves to RagChunk table.
         """
-        # 1. Clear old chunks
-        from sqlalchemy import delete
         await db.execute(delete(RagChunk).where(RagChunk.lesson_id == lesson_id))
         
-        # 2. Simple chunking (500 tokens approx)
         chunks = [text_content[i:i+1000] for i in range(0, len(text_content), 900)]
-        
         for idx, text in enumerate(chunks):
             embedding = await openai_client.get_embedding(text)
             chunk = RagChunk(
                 lesson_id=lesson_id,
                 chunk_index=idx,
                 chunk_text=text,
-                embedding=str(embedding), # Store as string for now
+                embedding=str(embedding),
                 token_count=len(text.split())
             )
             db.add(chunk)
         
         await db.commit()
-        logger.info("content_reindexed", lesson_id=str(lesson_id))
+        logger.info(f"Lesson {lesson_id} reindexed with {len(chunks)} chunks")
+        return len(chunks)
 
 content_service = ContentService()

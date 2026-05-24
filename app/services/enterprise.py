@@ -1,63 +1,92 @@
-import pandas as pd
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, insert, func
-from app.models.users import User, UserRole, UserRoleEnum
-from app.models.enterprise import OrgMembership, Organization, Team
-from app.core.security import hash_password
-from app.core.logging import logger
+from sqlalchemy import select, and_, func, update
+from app.models.enterprise import Organization, OrgMembership, OrgBranding, Team
+from app.models.users import User
+from app.schemas.enterprise import OrganizationCreate, OrgBrandingUpdate
+from fastapi import HTTPException
 import uuid
-import io
 
 class EnterpriseService:
-    async def import_users_from_csv(self, db: AsyncSession, org_id: uuid.UUID, csv_content: bytes):
-        df = pd.read_csv(io.BytesIO(csv_content))
-        results = {"success": [], "errors": []}
+    async def create_organization(self, db: AsyncSession, admin_id: uuid.UUID, data: OrganizationCreate):
+        org = Organization(
+            **data.model_dump(),
+            primary_admin_id=admin_id
+        )
+        db.add(org)
+        await db.flush()
         
-        for index, row in df.iterrows():
-            email = row.get('email')
-            full_name = row.get('full_name')
-            
-            if not email or not full_name:
-                results["errors"].append({"row": index, "reason": "Missing email or full_name"})
-                continue
-            
-            try:
-                # 1. Create User
-                user = User(
-                    email=email,
-                    full_name=full_name,
-                    hashed_password=hash_password("elitecoach123"), # Default password for invited users
-                )
-                db.add(user)
-                await db.flush()
-                
-                # 2. Add Role
-                role = UserRole(user_id=user.id, role=UserRoleEnum.ORG_LEARNER)
-                db.add(role)
-                
-                # 3. Add Org Membership
-                # membership = OrgMembership(org_id=org_id, user_id=user.id)
-                # db.add(membership)
-                
-                results["success"].append(email)
-            except Exception as e:
-                await db.rollback()
-                results["errors"].append({"row": index, "reason": str(e)})
-                continue
+        # Create default branding
+        branding = OrgBranding(org_id=org.id)
+        db.add(branding)
         
         await db.commit()
-        return results
+        await db.refresh(org)
+        return org
 
-    async def get_org_dashboard(self, db: AsyncSession, org_id: uuid.UUID):
-        # Multi-tenant scoped query
-        query = select(func.count(OrgMembership.id)).where(OrgMembership.org_id == org_id)
-        result = await db.execute(query)
-        total_learners = result.scalar()
-        
+    async def get_org_dashboard(self, db: AsyncSession, admin_id: uuid.UUID):
+        org_query = select(Organization).where(Organization.primary_admin_id == admin_id)
+        org = (await db.execute(org_query)).scalar_one_or_none()
+        if not org:
+            raise HTTPException(status_code=403, detail="Not an organization administrator")
+            
+        learners_query = (
+            select(User, OrgMembership.joined_at)
+            .join(OrgMembership, User.id == OrgMembership.user_id)
+            .where(OrgMembership.org_id == org.id)
+        )
+        result = await db.execute(learners_query)
+        learners = []
+        for user, joined_at in result.all():
+            learners.append({
+                "id": user.id,
+                "full_name": user.full_name,
+                "email": user.email,
+                "joined_at": joined_at,
+                "last_login_at": user.last_login_at
+            })
+            
         return {
-            "total_learners": total_learners,
-            "pct_completed": 0, # To be linked with analytics/assessments
-            "pct_at_risk": 0
+            "organization": org,
+            "learner_count": len(learners),
+            "learners": learners
         }
+
+    async def get_org_branding(self, db: AsyncSession, slug: str):
+        query = (
+            select(OrgBranding)
+            .join(Organization, OrgBranding.org_id == Organization.id)
+            .where(Organization.slug == slug)
+        )
+        result = await db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def update_org_branding(self, db: AsyncSession, admin_id: uuid.UUID, data: OrgBrandingUpdate):
+        # Find org
+        org_query = select(Organization).where(Organization.primary_admin_id == admin_id)
+        org = (await db.execute(org_query)).scalar_one_or_none()
+        if not org:
+            raise HTTPException(status_code=403, detail="Not an organization administrator")
+            
+        query = update(OrgBranding).where(OrgBranding.org_id == org.id).values(**data.model_dump(exclude_unset=True))
+        await db.execute(query)
+        await db.commit()
+        
+        res = await db.execute(select(OrgBranding).where(OrgBranding.org_id == org.id))
+        return res.scalar_one_or_none()
+
+    async def add_member(self, db: AsyncSession, org_id: uuid.UUID, user_id: uuid.UUID, team_id: uuid.UUID = None):
+        membership = OrgMembership(
+            org_id=org_id,
+            user_id=user_id,
+            team_id=team_id
+        )
+        db.add(membership)
+        await db.commit()
+        return membership
+
+    async def list_teams(self, db: AsyncSession, org_id: uuid.UUID):
+        query = select(Team).where(Team.org_id == org_id)
+        result = await db.execute(query)
+        return result.scalars().all()
 
 enterprise_service = EnterpriseService()
