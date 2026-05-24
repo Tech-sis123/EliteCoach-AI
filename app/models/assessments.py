@@ -49,6 +49,8 @@ class AssessmentAttempt(Base, BaseMixin):
     ai_feedback: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     answers: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
+    assessment: Mapped["Assessment"] = relationship()
+
 class Certificate(Base, BaseMixin):
     __tablename__ = "certificates"
 

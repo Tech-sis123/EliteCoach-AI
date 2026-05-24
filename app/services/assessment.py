@@ -92,7 +92,10 @@ class AssessmentService:
         questions = result.scalars().all()
         
         assessment_query = select(Assessment).where(Assessment.id == assessment_id)
-        assessment = (await db.execute(assessment_query)).scalar_one()
+        result = await db.execute(assessment_query)
+        assessment = result.scalar_one_or_none()
+        if not assessment:
+            raise HTTPException(status_code=404, detail="Assessment not found")
         
         await db.commit()
         

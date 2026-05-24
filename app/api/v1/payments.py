@@ -102,20 +102,6 @@ async def create_subscription(
     )
     return res
 
-@router.delete("/subscription")
-async def cancel_subscription(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Cancel active subscription."""
-    from app.models.payments import Subscription
-    query = update(Subscription).where(
-        and_(Subscription.user_id == current_user.id, Subscription.is_active == True)
-    ).values(is_active=False)
-    await db.execute(query)
-    await db.commit()
-    return {"message": "Subscription cancelled"}
-
 @router.get("/invoices")
 async def list_invoices(
     db: AsyncSession = Depends(get_db),

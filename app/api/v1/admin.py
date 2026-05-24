@@ -144,7 +144,7 @@ async def get_audit_logs(
     current_user: User = Depends(get_current_user)
 ):
     """Retrieve event logs with optional filtering."""
-    query = select(Event).order_by(Event.timestamp.desc()).limit(limit)
+    query = select(Event).order_by(Event.occurred_at.desc()).limit(limit)
     if event_type:
         query = query.where(Event.event_type == event_type)
     if user_id:
@@ -178,7 +178,7 @@ async def list_all_escalations(
     current_user: User = Depends(get_current_user)
 ):
     """Admin only: Platform-wide view of all active escalations."""
-    query = select(Escalation).where(Escalation.resolved == False)
+    query = select(Escalation).where(Escalation.status != "resolved")
     result = await db.execute(query)
     return result.scalars().all()
 
