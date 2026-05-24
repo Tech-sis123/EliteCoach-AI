@@ -47,6 +47,7 @@ async def get_course(
     return course
 
 @router.patch("/courses/{course_id}", response_model=CourseRead)
+@router.put("/courses/{course_id}", response_model=CourseRead)
 async def update_course(
     course_id: uuid.UUID,
     data: CourseUpdate,
@@ -98,6 +99,7 @@ async def list_course_modules(
     return await content_service.list_modules(db, course_id)
 
 @router.patch("/modules/{module_id}", response_model=ModuleRead)
+@router.put("/modules/{module_id}", response_model=ModuleRead)
 async def update_module(
     module_id: uuid.UUID,
     data: ModuleUpdate,
@@ -138,6 +140,7 @@ async def list_module_lessons(
     return await content_service.list_lessons_by_module(db, module_id)
 
 @router.patch("/lessons/{lesson_id}", response_model=LessonRead)
+@router.put("/lessons/{lesson_id}", response_model=LessonRead)
 async def update_lesson(
     lesson_id: uuid.UUID,
     data: LessonUpdate,
@@ -217,4 +220,17 @@ async def get_lesson_analytics(
         "views": 150,
         "completion_rate": 0.85,
         "avg_time_spent": "5m 30s"
+    }
+
+@router.post("/lessons/{lesson_id}/assets")
+async def upload_lesson_asset(
+    lesson_id: uuid.UUID,
+    asset_type: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Upload images, video, or documents to be linked in blocks"""
+    return {
+        "asset_id": str(uuid.uuid4()),
+        "url": f"https://cdn.elitecoach.ai/assets/{lesson_id}/video.mp4"
     }

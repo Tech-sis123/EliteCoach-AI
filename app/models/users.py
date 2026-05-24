@@ -25,6 +25,8 @@ class User(Base, BaseMixin):
     avatar_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     email_verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    reset_token_hash: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    verification_token_hash: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     
     roles: Mapped[List["UserRole"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     refresh_tokens: Mapped[List["RefreshToken"]] = relationship(back_populates="user", cascade="all, delete-orphan")

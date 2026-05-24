@@ -41,24 +41,31 @@ async def get_me(current_user: User = Depends(get_current_user), db: AsyncSessio
 
 @router.get("/verify-email/{token}")
 async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
-    # TBD: Implementation for email verification
-    return {"detail": "Email verified"}
+    """Verify user's email address."""
+    success = await auth_service.verify_email(db, token)
+    if not success:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification token")
+    return {"detail": "Email verified successfully"}
 
 @router.post("/forgot-password")
 async def forgot_password(request: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
-    # Security requirement: always return 200
+    """Initiate password reset process."""
+    await auth_service.initiate_password_reset(db, request.email)
     return {"detail": "If that email exists, a reset link has been sent"}
 
 @router.post("/reset-password/{token}")
 async def reset_password(token: str, request: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
-    # TBD: Implementation for password reset
+    """Reset password using token."""
+    success = await auth_service.reset_password(db, token, request.new_password)
+    if not success:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
     return {"detail": "Password reset successfully"}
 
-@router.post("/social")
+@router.post("/social", response_model=Token)
 async def social_login(
     provider: str,
     token: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """Placeholder for Google/LinkedIn OAuth2 exchange."""
-    return {"detail": f"Social login with {provider} triggered"}
+    """Exchange social provider token (Google/LinkedIn) for app tokens."""
+    return await auth_service.social_auth_exchange(db, provider, token)

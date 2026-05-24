@@ -58,8 +58,8 @@ class AssessmentService:
         )
         db.add(attempt)
         
-        from app.services.onboarding import onboarding_service
-        asyncio.create_task(onboarding_service.generate_learning_path(db, user_id))
+        from app.worker.tasks import generate_learning_path_task
+        generate_learning_path_task.delay(str(user_id))
         
         await db.commit()
         

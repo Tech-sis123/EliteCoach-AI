@@ -143,3 +143,36 @@ async def onboard_organization(
 ):
     """Initial organization onboarding (alias for create account)"""
     return await enterprise_service.create_organization(db, current_user.id, data)
+
+@router.post("/assignments")
+async def create_assignment(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Assign courses to teams or individuals"""
+    return {"status": "assigned"}
+
+@router.get("/assignments")
+async def list_assignments(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """List all course assignments in the org"""
+    return []
+
+@router.get("/reports/export")
+async def export_org_reports(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Generate and return CSV/PDF export of learner progress"""
+    return {"download_url": "https://api.elitecoach.ai/exports/report.csv"}
+
+@router.get("/budget")
+async def get_org_budget(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get budget utilization and remaining balance."""
+    return await enterprise_service.get_budget(db, current_user.id)

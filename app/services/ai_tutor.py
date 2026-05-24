@@ -147,8 +147,8 @@ Lesson context:
         db.add(assistant_msg)
         
         # 9. Background Escalation Check
-        all_history = list(history) + [user_msg, assistant_msg]
-        asyncio.create_task(self.escalation_trigger_service(session_id, user_message, all_history))
+        from app.worker.tasks import trigger_escalation_check_task
+        trigger_escalation_check_task.delay(str(session_id), user_message)
 
         # 10. Log Event
         event = Event(
@@ -168,16 +168,13 @@ Lesson context:
             "rag_sources": len(chunks)
         }
 
-    async def escalation_trigger_service(self, session_id: uuid.UUID, latest_message: str, all_messages: list):
-        # Use a fresh session for background task
-        from app.core.database import SessionLocal
-        async with SessionLocal() as db:
-            query = select(LessonSession).where(LessonSession.id == session_id).options(selectinload(LessonSession.lesson))
-            result = await db.execute(query)
-            session = result.scalar_one()
-            
-            if session.status == SessionStatus.ESCALATED:
-                return
+    async def escalation_trigger_service(self, db: AsyncSession, session_id: uuid.UUID, latest_message: str, all_messages: list):
+        query = select(LessonSession).where(LessonSession.id == session_id).options(selectinload(LessonSession.lesson))
+        result = await db.execute(query)
+        session = result.scalar_one()
+        
+        if session.status == SessionStatus.ESCALATED:
+            return
 
             # TRIGGER 1: Repeat question
             user_messages = [m for m in all_messages if m.role == "user"]

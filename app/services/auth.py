@@ -101,6 +101,96 @@ class AuthService:
         )
         await db.commit()
 
+    async def verify_email(self, db: AsyncSession, token: str) -> bool:
+        token_hash = self._hash_token(token)
+        query = select(User).where(User.verification_token_hash == token_hash)
+        result = await db.execute(query)
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            return False
+            
+        user.email_verified_at = datetime.utcnow()
+        user.verification_token_hash = None
+        await db.commit()
+        return True
+
+    async def initiate_password_reset(self, db: AsyncSession, email: str):
+        import secrets
+        from app.worker.tasks import send_email_notification
+        
+        query = select(User).where(User.email == email)
+        result = await db.execute(query)
+        user = result.scalar_one_or_none()
+        
+        if user:
+            token = secrets.token_urlsafe(32)
+            user.reset_token_hash = self._hash_token(token)
+            await db.commit()
+            
+            # Send Email
+            reset_link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+            send_email_notification.delay(
+                email=user.email,
+                subject="Password Reset Request",
+                body=f"Hello, click here to reset your password: {reset_link}"
+            )
+
+    async def reset_password(self, db: AsyncSession, token: str, new_password: str) -> bool:
+        token_hash = self._hash_token(token)
+        query = select(User).where(User.reset_token_hash == token_hash)
+        result = await db.execute(query)
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            return False
+            
+        user.hashed_password = hash_password(new_password)
+        user.reset_token_hash = None
+        await db.commit()
+        return True
+
+    async def social_auth_exchange(self, db: AsyncSession, provider: str, token: str):
+        import httpx
+        import secrets
+        email, full_name = None, None
+        
+        if provider == "google":
+            # Verify with Google API
+            async with httpx.AsyncClient() as client:
+                res = await client.get(f"https://www.googleapis.com/oauth2/v3/tokeninfo?id_token={token}")
+                if res.status_code == 200:
+                    data = res.json()
+                    email = data.get("email")
+                    full_name = data.get("name")
+        elif provider == "linkedin":
+            # LinkedIn verify logic
+            pass
+            
+        if not email:
+            raise HTTPException(status_code=400, detail="Invalid social token")
+            
+        # Get or create user
+        query = select(User).where(User.email == email).options(selectinload(User.roles))
+        result = await db.execute(query)
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            user = User(
+                email=email,
+                full_name=full_name or email.split("@")[0],
+                hashed_password=hash_password(secrets.token_urlsafe(16)),
+                email_verified_at=datetime.utcnow()
+            )
+            db.add(user)
+            await db.flush()
+            role = UserRole(user_id=user.id, role=UserRoleEnum.SOLO_LEARNER)
+            db.add(role)
+            await db.commit()
+            await db.refresh(user)
+            
+        return await self.create_tokens_for_user(db, user)
+
     async def get_me(self, db: AsyncSession, user_id: str):
         # In this simplified model, org_id is not yet on the user model, 
         # but enterprise memberships might have it. Let's check first.

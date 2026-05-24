@@ -1,3 +1,4 @@
+from app.core.database import Base
 from app.models.users import User, RefreshToken, UserRole
 from app.models.content import Course, Module, Lesson, RagChunk
 from app.models.learning import LearnerProfile, LearningPath, PathItem, Skill, SkillScore, ReinforcementTask, DiagnosticQuestion, DiagnosticAttempt

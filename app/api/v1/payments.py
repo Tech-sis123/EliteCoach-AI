@@ -153,3 +153,25 @@ async def verify_payment(
         return {"message": "Payment verified and subscription activated"}
     
     raise HTTPException(status_code=400, detail="Payment verification failed")
+
+@router.delete("/subscription")
+async def cancel_subscription(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Cancel auto-renewal for the current subscription."""
+    await db.execute(
+        update(Subscription)
+        .where(Subscription.user_id == current_user.id)
+        .values(status="cancelled")
+    )
+    await db.commit()
+    return {"message": "Subscription cancelled"}
+
+@router.get("/invoices")
+async def list_invoices(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Admin/Enterprise: List past payment receipts."""
+    return []

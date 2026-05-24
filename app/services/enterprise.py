@@ -163,4 +163,16 @@ class EnterpriseService:
         # In a real app, this would involve creating users, sending welcome emails, and assigning to teams
         return {"imported_count": len(users_data)}
 
+    async def get_budget(self, db: AsyncSession, admin_id: uuid.UUID):
+        org_query = select(Organization).where(Organization.primary_admin_id == admin_id)
+        org = (await db.execute(org_query)).scalar_one_or_none()
+        if not org:
+            raise HTTPException(status_code=403, detail="Not an organization administrator")
+        
+        return {
+            "total_budget_ngn": org.budget_ngn or 0.0,
+            "spent_ngn": (org.budget_ngn or 0.0) * 0.45, # Mock calc
+            "remaining_ngn": (org.budget_ngn or 0.0) * 0.55
+        }
+
 enterprise_service = EnterpriseService()

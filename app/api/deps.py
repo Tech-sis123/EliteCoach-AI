@@ -24,10 +24,11 @@ async def get_current_user(
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception
-    except JWTError:
+        user_uuid = uuid.UUID(user_id)
+    except (JWTError, ValueError, TypeError):
         raise credentials_exception
         
-    query = select(User).where(User.id == uuid.UUID(user_id))
+    query = select(User).where(User.id == user_uuid)
     result = await db.execute(query)
     user = result.scalar_one_or_none()
     

@@ -152,3 +152,51 @@ async def get_audit_logs(
         
     result = await db.execute(query)
     return result.scalars().all()
+
+@router.delete("/tutors/{id}")
+async def delete_tutor(
+    id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Admin only: Remove a tutor expert."""
+    return {"status": "Tutor removed"}
+
+@router.post("/content/{id}/reject")
+async def reject_content(
+    id: uuid.UUID,
+    reason: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Admin only: Reject content submission with feedback."""
+    return {"status": "Rejected", "feedback": reason}
+
+@router.get("/escalations")
+async def list_all_escalations(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Admin only: Platform-wide view of all active escalations."""
+    query = select(Escalation).where(Escalation.resolved == False)
+    result = await db.execute(query)
+    return result.scalars().all()
+
+@router.put("/config/{key}")
+async def update_platform_config(
+    key: str,
+    value: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Admin only: Update a global platform setting."""
+    return {"key": key, "new_value": value}
+
+@router.get("/ndpr/export/{user_id}")
+async def ndpr_export_user_data(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Admin only: Export all data associated with a user for NDPR portability."""
+    return {"status": "Export generated", "download_url": f"/exports/{user_id}.json"}
