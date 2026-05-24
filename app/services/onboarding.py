@@ -58,23 +58,34 @@ class OnboardingService:
             score=score
         )
         db.add(attempt)
+        await db.flush()
+        
+        # Generate the path
+        await self.generate_learning_path(db, profile.id)
         await db.commit()
         
-        return await self.generate_learning_path(db, profile.id)
+        # Re-fetch the newly generated path with full data
+        path_data = await self.get_learning_path_raw(db, profile.id)
+        if not path_data:
+             raise HTTPException(status_code=500, detail="Failed to generate learning path")
+        return path_data
 
-    async def get_learning_path(self, db: AsyncSession, user_id: uuid.UUID):
-        query = select(LearningPath).join(LearnerProfile).where(
-            LearnerProfile.user_id == user_id,
+    async def get_learning_path_raw(self, db: AsyncSession, profile_id: uuid.UUID):
+        # We need the learner_profile_id to find the path
+        query = select(LearningPath).where(
+            LearningPath.learner_profile_id == profile_id,
             LearningPath.status == "active"
         ).options(
             selectinload(LearningPath.items).selectinload(PathItem.course)
-        )
+        ).order_by(desc(LearningPath.version)) # Get newest version
+        
         result = await db.execute(query)
         path = result.scalar_one_or_none()
         
         if not path:
-            raise HTTPException(status_code=404, detail="No active learning path found. Complete onboarding to generate your path.")
-        
+            return None
+            
+        # Manually ensure items are loaded to avoid MissingGreenlet in response validation
         formatted_items = []
         for item in path.items:
             # Subquery to get total minutes for the course
@@ -101,6 +112,19 @@ class OnboardingService:
             "status": path.status,
             "items": formatted_items
         }
+
+    async def get_learning_path(self, db: AsyncSession, user_id: uuid.UUID):
+        query = select(LearnerProfile).where(LearnerProfile.user_id == user_id)
+        result = await db.execute(query)
+        profile = result.scalar_one_or_none()
+        if not profile:
+             raise HTTPException(status_code=404, detail="No active learning path found. Complete onboarding to generate your path.")
+        
+        path_data = await self.get_learning_path_raw(db, profile.id)
+        if not path_data:
+            raise HTTPException(status_code=404, detail="No active learning path found. Complete onboarding to generate your path.")
+        
+        return path_data
 
     async def regenerate_learning_path(self, db: AsyncSession, user_id: uuid.UUID):
         query = select(LearnerProfile).where(LearnerProfile.user_id == user_id)

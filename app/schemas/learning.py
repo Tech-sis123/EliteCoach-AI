@@ -28,7 +28,7 @@ class PathItemRead(BaseModel):
     course_id: uuid.UUID
     course_title: str
     course_domain: Optional[str] = None
-    course_difficulty: Optional[str] = None
+    course_difficulty: Optional[int] = None
     total_minutes: int = 0
     unlocked_at: Optional[datetime] = None
 

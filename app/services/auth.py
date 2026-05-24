@@ -192,9 +192,20 @@ class AuthService:
         return await self.create_tokens_for_user(db, user)
 
     async def get_me(self, db: AsyncSession, user_id: str):
+        import uuid
         # In this simplified model, org_id is not yet on the user model, 
         # but enterprise memberships might have it. Let's check first.
-        query = select(User).where(User.id == user_id).options(selectinload(User.roles))
+        
+        # Ensure user_id is a UUID object for consistent querying across dialects
+        try:
+            if isinstance(user_id, str):
+                user_id_obj = uuid.UUID(user_id)
+            else:
+                user_id_obj = user_id
+        except (ValueError, AttributeError):
+            user_id_obj = user_id
+
+        query = select(User).where(User.id == user_id_obj).options(selectinload(User.roles))
         result = await db.execute(query)
         user = result.scalar_one_or_none()
         if not user:
