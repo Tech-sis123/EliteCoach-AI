@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, and_
 from app.api.deps import get_db, get_current_user, get_current_user_id
 from app.models.users import User
 from app.services.ai_tutor import ai_tutor_service
-from app.schemas.ai_tutor import SessionMessageRead, SessionSummaryRead, KnowledgeCheckRead, KnowledgeCheckResponse
+from app.schemas.ai_tutor import SessionMessageRead, SessionSummaryRead, KnowledgeCheckRead, KnowledgeCheckResponse, ManualEscalateRequest, EscalationCreatedResponse, EscalationStatusRead
 from pydantic import BaseModel
 from typing import List
 import uuid
@@ -49,7 +50,16 @@ async def get_summary(
 ):
     return await ai_tutor_service.get_summary(db, id)
 
-@router.get("/session/{id}/escalation-status")
+@router.post("/session/{id}/escalate", response_model=EscalationCreatedResponse)
+async def manual_escalate(
+    id: uuid.UUID,
+    data: ManualEscalateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return await ai_tutor_service.manual_escalate(db, id, current_user.id, data.reason)
+
+@router.get("/session/{id}/escalation-status", response_model=EscalationStatusRead)
 async def get_escalation_status(
     id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -58,13 +68,48 @@ async def get_escalation_status(
     """Check if the session has been escalated to a human tutor."""
     from app.models.ai_tutor import Escalation
     from sqlalchemy import select
-    query = select(Escalation).where(Escalation.session_id == id)
+    from sqlalchemy.orm import selectinload
+    
+    query = (
+        select(Escalation)
+        .where(and_(Escalation.session_id == id, Escalation.is_deleted == False))
+        .options(selectinload(Escalation.assigned_tutor))
+        .order_by(Escalation.created_at.desc())
+        .limit(1)
+    )
     result = await db.execute(query)
     esc = result.scalar_one_or_none()
+    
+    if not esc:
+        return {
+            "escalated": False,
+            "escalation_id": None,
+            "status": None,
+            "trigger_reason": None,
+            "assigned_tutor": None,
+            "created_at": None,
+            "resolved_at": None,
+            "can_cancel": False
+        }
+    
+    can_cancel = (
+        esc.status in ["open", "assigned"] and 
+        esc.trigger_reason == "manual_request" and
+        esc.learner_id == current_user.id
+    )
+    
     return {
-        "is_escalated": esc is not None,
-        "status": esc.status if esc else None,
-        "resolved": esc.status == "resolved" if esc else False
+        "escalated": True,
+        "escalation_id": esc.id,
+        "status": esc.status,
+        "trigger_reason": esc.trigger_reason,
+        "assigned_tutor": {
+            "name": esc.assigned_tutor.full_name,
+            "avatar_url": esc.assigned_tutor.avatar_url
+        } if esc.assigned_tutor else None,
+        "created_at": esc.created_at,
+        "resolved_at": esc.resolved_at,
+        "can_cancel": can_cancel
     }
 
 @router.get("/learning/lesson/{id}/checks", response_model=List[KnowledgeCheckRead])

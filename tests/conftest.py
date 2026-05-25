@@ -102,7 +102,19 @@ async def token(client: AsyncClient):
         "full_name": "Test User",
         "phone": "+2347012345678"
     })
-    
+
+    # MANUALLY VERIFY USER for tests
+    from sqlalchemy import update
+    from app.models.users import User
+    from datetime import datetime
+    async with TestSessionLocal() as session:
+        await session.execute(
+            update(User)
+            .where(User.email == email)
+            .values(email_verified_at=datetime.utcnow())
+        )
+        await session.commit()
+
     response = await client.post("/api/v1/auth/login", data={
         "username": email,
         "password": password

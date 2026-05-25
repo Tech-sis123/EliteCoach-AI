@@ -48,6 +48,22 @@ class ModuleRead(BaseModel):
     position: int
     lesson_count: int = 0
 
+class ActiveSessionItem(BaseModel):
+    session_id: uuid.UUID
+    lesson_id: uuid.UUID
+    lesson_title: str
+    estimated_minutes: int
+    module_id: uuid.UUID
+    module_title: str
+    course_id: uuid.UUID
+    course_title: str
+    domain: str
+    message_count: int
+    last_active_at: datetime
+
+class ActiveSessionRead(BaseModel):
+    active_sessions: List[ActiveSessionItem]
+
 class CourseDetailResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID

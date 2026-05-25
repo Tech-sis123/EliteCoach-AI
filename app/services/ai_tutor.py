@@ -4,9 +4,11 @@ from sqlalchemy.orm import selectinload
 from app.models.ai_tutor import LessonSession, SessionMessage, SessionStatus, Escalation, KnowledgeCheck, KnowledgeCheckResponse
 from app.models.content import RagChunk, Lesson, Module
 from app.models.learning import LearnerProfile, SkillScore, Skill
+from app.models.users import User
 from app.models.analytics import Event
 from app.services.analytics import analytics_service
-# Removed app.services.escalation.escalation_service as we'll implement fire_escalation here or import it correctly
+from app.services.notification import notification_service
+from app.services.escalation import escalation_service
 from app.integrations.anthropic_client import anthropic_client
 from app.integrations.openai_client import openai_client
 from app.core.logging import logger
@@ -28,7 +30,8 @@ class AiTutorService:
             and_(
                 LessonSession.learner_id == user_id,
                 LessonSession.lesson_id == lesson_id,
-                LessonSession.status == SessionStatus.ACTIVE
+                LessonSession.status == SessionStatus.ACTIVE,
+                LessonSession.is_deleted == False
             )
         )
         result = await db.execute(query)
@@ -208,36 +211,37 @@ Lesson context:
     async def fire_escalation(self, db: AsyncSession, session: LessonSession, reason: str):
         session.status = SessionStatus.ESCALATED
         
-        # Find tutor
-        from app.models.users import UserRole, UserRoleEnum
-        from app.models.content import ContentTag # If it exists
-        
-        # Simple assignment for now: find any tutor_responder
-        tutor_query = select(UserRole.user_id).where(UserRole.role == UserRoleEnum.TUTOR_RESPONDER).limit(1)
-        tutor_id = (await db.execute(tutor_query)).scalar()
-        
         escalation = Escalation(
             session_id=session.id,
             learner_id=session.learner_id,
             lesson_id=session.lesson_id,
             trigger_reason=reason,
-            status="assigned" if tutor_id else "open",
-            assigned_tutor_id=tutor_id
+            status="open"
         )
         db.add(escalation)
+        await db.flush()
+        
+        # Route to tutor
+        from app.services.escalation import escalation_service
+        assigned_tutor = await escalation_service.assign_tutor(db, escalation)
         
         # Log event
-        event = Event(
+        analytics_service.track(
             event_type="escalation.created",
             actor_id=session.learner_id,
             entity_type="escalation",
-            entity_id=session.id, # Using session_id as anchor
-            payload={"reason": reason, "tutor_id": str(tutor_id) if tutor_id else None}
+            entity_id=escalation.id,
+            metadata={"reason": reason, "tutor_id": str(assigned_tutor.id) if assigned_tutor else None}
         )
-        db.add(event)
         
-        # TODO: Notifications (WhatsApp/Brevo)
+        # Notifications
+        learner_query = select(User).where(User.id == session.learner_id)
+        learner = (await db.execute(learner_query)).scalar_one()
         
+        await notification_service.send_in_app(db, session.learner_id, "Escalation requested", "Your request has been sent to a human tutor. You will be notified when they respond.")
+        if assigned_tutor:
+            await notification_service.send_in_app(db, assigned_tutor.id, "New escalation", f"New escalation: {learner.full_name} needs help with {session.lesson.title}")
+
         await db.commit()
 
     async def get_messages(self, db: AsyncSession, session_id: uuid.UUID):
@@ -341,6 +345,110 @@ Be concise (3-4 sentences max)."""
             "explanation": explanation,
             "attempts": response.attempts,
             "re_ask": re_ask
+        }
+
+    async def manual_escalate(self, db: AsyncSession, session_id: uuid.UUID, learner_id: uuid.UUID, reason: str):
+        # 1. Load the lesson_session
+        query = select(LessonSession).where(
+            and_(
+                LessonSession.id == session_id,
+                LessonSession.learner_id == learner_id,
+                LessonSession.is_deleted == False
+            )
+        ).options(selectinload(LessonSession.lesson))
+        result = await db.execute(query)
+        session = result.scalar_one_or_none()
+        
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        if session.status == SessionStatus.ESCALATED:
+            # Check for existing open escalation
+            esc_query = select(Escalation).where(
+                and_(
+                    Escalation.session_id == session_id,
+                    Escalation.status.in_(["open", "assigned", "in_progress"]),
+                    Escalation.is_deleted == False
+                )
+            )
+            esc_result = await db.execute(esc_query)
+            existing_esc = esc_result.scalar_one_or_none()
+            if existing_esc:
+                raise HTTPException(status_code=409, detail={"message": "This session is already escalated", "escalation_id": str(existing_esc.id)})
+            
+        if session.status == SessionStatus.COMPLETED or session.status == "completed":
+             raise HTTPException(status_code=400, detail="Session is already completed")
+
+        # 2. Check for existing open escalation for this session (extra safety)
+        esc_query = select(Escalation).where(
+            and_(
+                Escalation.session_id == session_id,
+                ~Escalation.status.in_(["resolved", "cancelled"]),
+                Escalation.is_deleted == False
+            )
+        ).options(selectinload(Escalation.assigned_tutor))
+        esc_result = await db.execute(esc_query)
+        existing_esc = esc_result.scalar_one_or_none()
+        if existing_esc:
+            return {
+                "escalation_id": existing_esc.id,
+                "status": existing_esc.status,
+                "assigned_tutor_name": existing_esc.assigned_tutor.full_name if existing_esc.assigned_tutor else None,
+                "message": "A human tutor has been notified and will respond shortly."
+            }
+
+        # 3. Update lesson_sessions.status = 'escalated'
+        session.status = SessionStatus.ESCALATED
+        
+        # 4. INSERT into escalations
+        escalation = Escalation(
+            session_id=session_id,
+            learner_id=learner_id,
+            lesson_id=session.lesson_id,
+            trigger_reason='manual_request',
+            status='open',
+            manual_reason=reason
+        )
+        db.add(escalation)
+        await db.flush() # To get escalation.id
+        
+        # 5. Route to tutor
+        # Use existing logic from escalation_service if it exists, or placeholder
+        # According to task, we should use the existing assignment logic
+        assigned_tutor = None
+        if hasattr(escalation_service, "assign_tutor"):
+            assigned_tutor = await escalation_service.assign_tutor(db, escalation)
+        
+        # 6. Send notifications
+        # Fetch learner info
+        learner_query = select(User).where(User.id == learner_id)
+        learner = (await db.execute(learner_query)).scalar_one()
+        
+        # To learner
+        await notification_service.send_in_app(db, learner_id, "Escalation requested", "Your request has been sent to a human tutor. You will be notified when they respond.")
+        # (WhatsApp/Email templates would be called here via notification_service)
+        
+        # To tutor if assigned
+        if assigned_tutor:
+            await notification_service.send_in_app(db, assigned_tutor.id, "New escalation", f"New escalation: {learner.full_name} needs help with {session.lesson.title}")
+
+        # 7. Log to events table
+        analytics_service.track(
+            event_type='escalation.manual_created', 
+            actor_id=learner_id, 
+            entity_type='escalation', 
+            entity_id=escalation.id,
+            metadata={'session_id': str(session_id), 'trigger': 'manual_request'}
+        )
+        
+        await db.commit()
+        await db.refresh(escalation)
+        
+        return {
+            "escalation_id": escalation.id,
+            "status": escalation.status,
+            "assigned_tutor_name": assigned_tutor.full_name if assigned_tutor else None,
+            "message": "A human tutor has been notified and will respond shortly."
         }
 
 ai_tutor_service = AiTutorService()

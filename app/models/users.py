@@ -24,6 +24,7 @@ class User(Base, BaseMixin):
     phone: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     avatar_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    subject_area: Mapped[Optional[str]] = mapped_column(String, nullable=True) # For tutors
     email_verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     reset_token_hash: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     verification_token_hash: Mapped[Optional[str]] = mapped_column(String, nullable=True)

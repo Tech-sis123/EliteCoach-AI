@@ -41,9 +41,16 @@ class Escalation(Base, BaseMixin):
     session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("lesson_sessions.id"))
     learner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     lesson_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("lessons.id"))
-    trigger_reason: Mapped[str] = mapped_column(String) # repeat_question, frustrated_language
-    status: Mapped[str] = mapped_column(String, default="open") # open, in_progress, resolved
+    trigger_reason: Mapped[str] = mapped_column(String) # repeat_question, frustrated_language, manual_request
+    status: Mapped[str] = mapped_column(String, default="open") # open, assigned, in_progress, resolved, cancelled
     assigned_tutor_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    manual_reason: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    session: Mapped["LessonSession"] = relationship()
+    learner: Mapped["User"] = relationship(foreign_keys=[learner_id])
+    lesson: Mapped["Lesson"] = relationship()
+    assigned_tutor: Mapped[Optional["User"]] = relationship(foreign_keys=[assigned_tutor_id])
 
 class KnowledgeCheck(Base, BaseMixin):
     __tablename__ = "knowledge_checks"

@@ -3,7 +3,7 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.orm import selectinload
 from app.models.content import Course, Module, Lesson
 from app.models.learning import PathItem, LearnerProfile, LearningPath
-from app.models.ai_tutor import LessonSession
+from app.models.ai_tutor import LessonSession, SessionMessage
 from app.models.users import User
 from app.models.ai_tutor import SessionStatus, KnowledgeCheck
 from app.models.analytics import Event
@@ -153,5 +153,59 @@ class LearningService:
             "module_assessment_unlocked": next_lesson is None,
             "final_exam_unlocked": False # Final exam logic needed
         }
+
+    async def get_active_sessions(self, db: AsyncSession, user_id: uuid.UUID):
+        query = (
+            select(
+                LessonSession.id.label("session_id"),
+                LessonSession.lesson_id,
+                LessonSession.updated_at.label("last_active_at"),
+                Lesson.title.label("lesson_title"),
+                Lesson.estimated_minutes,
+                Module.id.label("module_id"),
+                Module.title.label("module_title"),
+                Course.id.label("course_id"),
+                Course.title.label("course_title"),
+                Course.domain,
+                func.count(SessionMessage.id).label("message_count")
+            )
+            .join(Lesson, LessonSession.lesson_id == Lesson.id)
+            .join(Module, Lesson.module_id == Module.id)
+            .join(Course, Module.course_id == Course.id)
+            .outerjoin(SessionMessage, SessionMessage.session_id == LessonSession.id)
+            .where(
+                and_(
+                    LessonSession.learner_id == user_id,
+                    LessonSession.status == SessionStatus.ACTIVE,
+                    LessonSession.is_deleted == False
+                )
+            )
+            .group_by(
+                LessonSession.id, LessonSession.lesson_id, LessonSession.updated_at,
+                Lesson.title, Lesson.estimated_minutes,
+                Module.id, Module.title, Course.id, Course.title, Course.domain
+            )
+            .order_by(LessonSession.updated_at.desc())
+            .limit(5)
+        )
+        
+        result = await db.execute(query)
+        sessions = []
+        for row in result.all():
+            sessions.append({
+                "session_id": row.session_id,
+                "lesson_id": row.lesson_id,
+                "last_active_at": row.last_active_at,
+                "lesson_title": row.lesson_title,
+                "estimated_minutes": row.estimated_minutes,
+                "module_id": row.module_id,
+                "module_title": row.module_title,
+                "course_id": row.course_id,
+                "course_title": row.course_title,
+                "domain": row.domain,
+                "message_count": row.message_count
+            })
+            
+        return {"active_sessions": sessions}
 
 learning_service = LearningService()

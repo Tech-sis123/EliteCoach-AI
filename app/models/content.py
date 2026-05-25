@@ -1,3 +1,4 @@
+from __future__ import annotations
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import String, ForeignKey, Integer, Float, Enum as SQLEnum
 from typing import List, Optional
@@ -17,6 +18,8 @@ class Course(Base, BaseMixin):
     author_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     status: Mapped[str] = mapped_column(String, default="draft") # draft, in_review, published
 
+    modules: Mapped[List[Module]] = relationship("Module", back_populates="course", cascade="all, delete-orphan")
+
 class Module(Base, BaseMixin):
     __tablename__ = "modules"
     
@@ -24,6 +27,9 @@ class Module(Base, BaseMixin):
     title: Mapped[str] = mapped_column(String)
     position: Mapped[int] = mapped_column(Integer)
     description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+    course: Mapped[Course] = relationship("Course", back_populates="modules")
+    lessons: Mapped[List[Lesson]] = relationship("Lesson", back_populates="module")
 
 class Lesson(Base, BaseMixin):
     __tablename__ = "lessons"
@@ -34,6 +40,8 @@ class Lesson(Base, BaseMixin):
     estimated_minutes: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String, default="draft")
     version: Mapped[int] = mapped_column(Integer, default=1)
+
+    module: Mapped[Module] = relationship("Module", back_populates="lessons")
 
 class RagChunk(Base, BaseMixin):
     __tablename__ = "rag_chunks"
