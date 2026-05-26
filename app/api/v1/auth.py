@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
-from app.schemas.users import UserCreate, UserRead, Token
-from app.schemas.auth import RefreshRequest, LogoutRequest, UserMe, ForgotPasswordRequest, ResetPasswordRequest
+from app.schemas.users import UserCreate, UserRead
+from app.schemas.auth import RefreshRequest, LogoutRequest, UserMe, ForgotPasswordRequest, ResetPasswordRequest, LoginResponse
 from app.services.auth import auth_service
 from app.api.deps import get_current_user
 from app.models.users import User
@@ -10,18 +10,18 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 router = APIRouter()
 
-@router.post("/register", response_model=UserRead)
+@router.post("/register", response_model=LoginResponse)
 async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
     return await auth_service.register_user(db, user_in)
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=LoginResponse)
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
     user = await auth_service.authenticate_user(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
     return await auth_service.create_tokens_for_user(db, user)
 
-@router.post("/refresh", response_model=Token)
+@router.post("/refresh", response_model=LoginResponse)
 async def refresh_token(request: RefreshRequest, db: AsyncSession = Depends(get_db)):
     return await auth_service.refresh_access_token(db, request.refresh_token)
 
@@ -36,7 +36,7 @@ async def get_me(current_user: User = Depends(get_current_user), db: AsyncSessio
     return {
         **user.__dict__,
         "roles": [r.role for r in user.roles],
-        "org_id": None # Placeholder until enterprise logic is fully integrated
+        "org_id": user.__dict__.get("org_id")
     }
 
 @router.get("/verify-email/{token}")
@@ -61,7 +61,7 @@ async def reset_password(token: str, request: ResetPasswordRequest, db: AsyncSes
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
     return {"detail": "Password reset successfully"}
 
-@router.post("/social", response_model=Token)
+@router.post("/social", response_model=LoginResponse)
 async def social_login(
     provider: str,
     token: str,

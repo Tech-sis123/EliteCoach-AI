@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, Field
 from typing import Optional, List
 import uuid
 from datetime import datetime
@@ -12,7 +12,8 @@ class UserBase(SchemaBase):
     phone: Optional[str] = None
 
 class UserCreate(UserBase):
-    password: str
+    password: str = Field(..., min_length=8)
+    role: Optional[str] = "solo_learner"
 
 class UserRead(UserBase):
     id: uuid.UUID

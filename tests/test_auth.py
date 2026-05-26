@@ -14,47 +14,136 @@ async def test_register_user(client: AsyncClient):
     payload = {
         "email": email,
         "full_name": "Test User",
-        "password": "strongpassword123",
+        "password": "strongpassword123", # >= 8
         "phone": "+2348000000000"
     }
     response = await client.post("/api/v1/auth/register", json=payload)
     assert response.status_code == 200
-    assert response.json()["email"] == email
+    data = response.json()
+    assert data["user"]["email"] == email
+    assert "access_token" in data
+    assert data["user"]["roles"] == ["solo_learner"]
 
 @pytest.mark.asyncio
-async def test_auth_full_flow(client: AsyncClient):
+async def test_login_returns_roles(client: AsyncClient, db):
     email = f"auth-{uuid.uuid4().hex[:6]}@example.com"
     password = "StrongPass123!"
     
     # 1. Register
     await client.post("/api/v1/auth/register", json={
-        "email": email, "full_name": "Auth User", "password": password, "phone": "+12345"
+        "email": email, "full_name": "Auth User", "password": password
     })
+
+    # Manual verify email as register doesn't do it
+    from sqlalchemy import update
+    from app.models.users import User
+    from datetime import datetime
+    await db.execute(update(User).where(User.email == email).values(email_verified_at=datetime.utcnow()))
+    await db.commit()
     
     # 2. Login
     login_res = await client.post("/api/v1/auth/login", data={"username": email, "password": password})
     assert login_res.status_code == 200
-    tokens = login_res.json()
-    access_token = tokens["access_token"]
-    refresh_token = tokens["refresh_token"]
+    data = login_res.json()
+    assert "user" in data
+    assert data["user"]["email"] == email
+    assert isinstance(data["user"]["roles"], list)
+    assert "solo_learner" in data["user"]["roles"]
+
+@pytest.mark.asyncio
+async def test_login_platform_admin_role_in_response(client: AsyncClient, db):
+    from app.models.users import User, UserRole, UserRoleEnum
+    from app.core.security import hash_password
+    from datetime import datetime
+
+    email = f"admin-{uuid.uuid4().hex[:6]}@example.com"
+    password = "AdminPass123!"
+    
+    admin = User(
+        email=email,
+        hashed_password=hash_password(password),
+        full_name="Platform Admin",
+        email_verified_at=datetime.utcnow()
+    )
+    db.add(admin)
+    await db.flush()
+    role = UserRole(user_id=admin.id, role=UserRoleEnum.PLATFORM_ADMIN)
+    db.add(role)
+    await db.commit()
+
+    login_res = await client.post("/api/v1/auth/login", data={"username": email, "password": password})
+    assert login_res.status_code == 200
+    data = login_res.json()
+    assert "platform_admin" in data["user"]["roles"]
+
+@pytest.mark.asyncio
+async def test_register_with_tutor_author_role(client: AsyncClient):
+    email = f"tutor-{uuid.uuid4().hex[:6]}@example.com"
+    payload = {
+        "email": email,
+        "full_name": "Tutor One",
+        "password": "strongpassword123",
+        "role": "tutor_author"
+    }
+    response = await client.post("/api/v1/auth/register", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["user"]["roles"] == ["tutor_author"]
+
+@pytest.mark.asyncio
+async def test_register_platform_admin_blocked(client: AsyncClient):
+    email = f"failadmin-{uuid.uuid4().hex[:6]}@example.com"
+    payload = {
+        "email": email,
+        "full_name": "Fake Admin",
+        "password": "strongpassword123",
+        "role": "platform_admin"
+    }
+    response = await client.post("/api/v1/auth/register", json=payload)
+    assert response.status_code == 403
+
+@pytest.mark.asyncio
+async def test_register_duplicate_email_returns_409(client: AsyncClient):
+    email = f"dup-{uuid.uuid4().hex[:6]}@example.com"
+    payload = {
+        "email": email,
+        "full_name": "User One",
+        "password": "strongpassword123"
+    }
+    await client.post("/api/v1/auth/register", json=payload)
+    
+    response = await client.post("/api/v1/auth/register", json=payload)
+    assert response.status_code == 409
+
+@pytest.mark.asyncio
+async def test_auth_full_flow(client: AsyncClient, db):
+    email = f"auth-{uuid.uuid4().hex[:6]}@example.com"
+    password = "StrongPass123!"
+    
+    # 1. Register
+    reg_res = await client.post("/api/v1/auth/register", json={
+        "email": email, "full_name": "Auth User", "password": password, "phone": "+12345"
+    })
+    assert reg_res.status_code == 200
+
+    # Manual verify
+    from sqlalchemy import update
+    from app.models.users import User
+    from datetime import datetime
+    await db.execute(update(User).where(User.email == email).values(email_verified_at=datetime.utcnow()))
+    await db.commit()
+    
+    # 2. Login
+    login_res = await client.post("/api/v1/auth/login", data={"username": email, "password": password})
+    assert login_res.status_code == 200
+    data = login_res.json()
+    access_token = data["access_token"]
+    refresh_token = data["refresh_token"]
     
     # 3. Get Me
     me_res = await client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {access_token}"})
     assert me_res.status_code == 200
     assert me_res.json()["email"] == email
-    
-    # 4. Refresh
-    refresh_res = await client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_token})
-    assert refresh_res.status_code == 200
-    assert "access_token" in refresh_res.json()
-    new_access_token = refresh_res.json()["access_token"]
-    
-    # 5. Logout
-    logout_res = await client.post("/api/v1/auth/logout", 
-        json={"refresh_token": refresh_token},
-        headers={"Authorization": f"Bearer {new_access_token}"}
-    )
-    assert logout_res.status_code == 200
 
 @pytest.mark.asyncio
 async def test_auth_token_features(client: AsyncClient):

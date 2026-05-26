@@ -17,11 +17,18 @@ class AuthService:
         import secrets
         import string
         from app.services.notification import notification_service
+        from app.schemas.auth import LoginUserRead, LoginResponse
 
-        query = select(User).where(User.email == user_in.email)
+        if len(user_in.password) < 8:
+            raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
+        if user_in.role == "platform_admin":
+            raise HTTPException(status_code=403, detail="platform_admin accounts cannot be self-registered")
+
+        query = select(User).where(User.email == user_in.email, User.is_deleted == False)
         result = await db.execute(query)
         if result.scalar_one_or_none():
-            raise HTTPException(status_code=400, detail="Email already registered")
+            raise HTTPException(status_code=409, detail="An account with this email already exists")
         
         # Generate 4-digit OTP
         otp = ''.join(secrets.choice(string.digits) for _ in range(4))
@@ -37,12 +44,13 @@ class AuthService:
         db.add(db_user)
         await db.flush()
         
-        # Default role
-        role = UserRole(user_id=db_user.id, role=UserRoleEnum.SOLO_LEARNER)
+        # Assign role from request instead of hardcoding solo_learner
+        target_role = user_in.role or UserRoleEnum.SOLO_LEARNER
+        role = UserRole(user_id=db_user.id, role=target_role)
         db.add(role)
         
         await db.commit()
-        await db.refresh(db_user)
+        await db.refresh(db_user, attribute_names=["roles"])
 
         # Send Verification Email with OTP
         html_content = f"""
@@ -62,7 +70,37 @@ class AuthService:
             html_content=html_content
         )
         
-        return db_user
+        # Return full LoginResponse with tokens and user object
+        roles = [r.role for r in db_user.roles]
+        access_token = create_access_token(data={"sub": str(db_user.id), "roles": roles})
+        refresh_token = create_refresh_token(data={"sub": str(db_user.id)})
+        
+        # Store refresh token
+        token_hash = self._hash_token(refresh_token)
+        expires_at = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        db_refresh_token = RefreshToken(
+            user_id=db_user.id,
+            token_hash=token_hash,
+            expires_at=expires_at
+        )
+        db.add(db_refresh_token)
+        await db.commit()
+
+        return LoginResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            token_type="bearer",
+            user=LoginUserRead(
+                id=db_user.id,
+                email=db_user.email,
+                full_name=db_user.full_name,
+                phone=db_user.phone,
+                avatar_url=db_user.avatar_url,
+                org_id=None,
+                email_verified_at=db_user.email_verified_at,
+                roles=roles
+            )
+        )
 
     async def authenticate_user(self, db: AsyncSession, email: str, password: str):
         query = select(User).where(User.email == email).options(selectinload(User.roles))
@@ -87,6 +125,7 @@ class AuthService:
         return user
 
     async def create_tokens_for_user(self, db: AsyncSession, user: User):
+        from app.schemas.auth import LoginUserRead, LoginResponse
         roles = [r.role for r in user.roles]
         access_token = create_access_token(data={"sub": str(user.id), "roles": roles})
         refresh_token = create_refresh_token(data={"sub": str(user.id)})
@@ -102,11 +141,21 @@ class AuthService:
         db.add(db_refresh_token)
         await db.commit()
         
-        return {
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "token_type": "bearer"
-        }
+        return LoginResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            token_type="bearer",
+            user=LoginUserRead(
+                id=user.id,
+                email=user.email,
+                full_name=user.full_name,
+                phone=user.phone,
+                avatar_url=user.avatar_url,
+                org_id=None, # Placeholder
+                email_verified_at=user.email_verified_at,
+                roles=roles
+            )
+        )
 
     async def refresh_access_token(self, db: AsyncSession, refresh_token: str):
         payload = decode_token(refresh_token)
