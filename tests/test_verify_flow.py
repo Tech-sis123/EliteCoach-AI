@@ -25,7 +25,7 @@ async def test_registration_and_verification_flow(client: AsyncClient, db: Async
         
         assert response.status_code == 200
         user_data = response.json()
-        assert user_data["email"] == email
+        assert user_data["user"]["email"] == email
         
         # 3. Try to login BEFORE verification (Should FAIL)
         login_response = await client.post("/api/v1/auth/login", data={

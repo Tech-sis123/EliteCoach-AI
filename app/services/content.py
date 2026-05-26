@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
+from sqlalchemy.orm import selectinload
 from app.models.content import Course, Module, Lesson, RagChunk
 from app.schemas.content import CourseCreate, LessonCreate, ModuleCreate
 from app.core.logging import logger
@@ -89,11 +90,14 @@ class ContentService:
         )
         db.add(lesson)
         await db.commit()
-        await db.refresh(lesson)
-        return lesson
+        
+        # Load content_blocks explicitly to avoid lazy loading issues in the response
+        query = select(Lesson).where(Lesson.id == lesson.id).options(selectinload(Lesson.content_blocks))
+        result = await db.execute(query)
+        return result.scalar_one()
 
     async def get_lesson(self, db: AsyncSession, lesson_id: uuid.UUID):
-        query = select(Lesson).where(Lesson.id == lesson_id)
+        query = select(Lesson).where(Lesson.id == lesson_id).options(selectinload(Lesson.content_blocks))
         result = await db.execute(query)
         return result.scalar_one_or_none()
 
@@ -102,13 +106,14 @@ class ContentService:
             select(Lesson)
             .join(Module)
             .where(Module.course_id == course_id)
+            .options(selectinload(Lesson.content_blocks))
             .order_by(Module.position, Lesson.position)
         )
         result = await db.execute(query)
         return result.scalars().all()
     
     async def list_lessons_by_module(self, db: AsyncSession, module_id: uuid.UUID):
-        query = select(Lesson).where(Lesson.module_id == module_id).order_by(Lesson.position)
+        query = select(Lesson).where(Lesson.module_id == module_id).options(selectinload(Lesson.content_blocks)).order_by(Lesson.position)
         result = await db.execute(query)
         return result.scalars().all()
 

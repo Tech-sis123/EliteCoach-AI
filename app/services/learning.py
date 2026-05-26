@@ -68,7 +68,10 @@ class LearningService:
         from app.services.ai_tutor import ai_tutor_service
         session = await ai_tutor_service.start_session(db, user_id, lesson_id)
         
-        lesson_query = select(Lesson).where(Lesson.id == lesson_id).options(selectinload(Lesson.module))
+        lesson_query = select(Lesson).where(Lesson.id == lesson_id).options(
+            selectinload(Lesson.module),
+            selectinload(Lesson.content_blocks)
+        )
         lesson = (await db.execute(lesson_query)).scalar_one()
         course_id = lesson.module.course_id
         
@@ -121,9 +124,9 @@ class LearningService:
         session.status = SessionStatus.COMPLETED
         session.ended_at = datetime.utcnow()
         
-        # Background task for summary
+        # Ensure summary is generated at completion
         from app.services.ai_tutor import ai_tutor_service
-        asyncio.create_task(ai_tutor_service.get_summary(db, session.id))
+        await ai_tutor_service.get_summary(db, session.id)
         
         # Check if course is complete
         lesson_query = select(Lesson).where(Lesson.id == lesson_id).options(selectinload(Lesson.module))
@@ -176,9 +179,9 @@ class LearningService:
             .where(
                 and_(
                     LessonSession.learner_id == user_id,
-                    LessonSession.status == SessionStatus.ACTIVE,
                     LessonSession.is_deleted == False
-                )
+                ),
+                LessonSession.status.in_([SessionStatus.ACTIVE, SessionStatus.ESCALATED])
             )
             .group_by(
                 LessonSession.id, LessonSession.lesson_id, LessonSession.updated_at,

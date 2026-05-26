@@ -59,7 +59,7 @@ async def test_ai_session_flow(client: AsyncClient, token: str):
         )
         assert check_submit_res.status_code == 200
 
-    # 7. Escalation Status
-    esc_res = await client.get(f"/api/v1/ai/session/{session_id}/escalation-status", headers=headers)
-    assert esc_res.status_code == 200
-    assert "is_escalated" in esc_res.json()
+        # 7. Escalation Status
+        esc_res = await client.get(f"/api/v1/ai/session/{session_id}/escalation-status", headers=headers)
+        assert esc_res.status_code == 200
+        assert "escalated" in esc_res.json()

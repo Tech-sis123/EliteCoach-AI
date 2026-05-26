@@ -120,3 +120,6 @@ graph TD
 
 ## 📄 License
 This project is licensed under the MIT License.
+
+## 📖 Developer Resources
+- [API Flow & Implementation Confirmations](docs/API_FLOW_CONFIRMATIONS.md)

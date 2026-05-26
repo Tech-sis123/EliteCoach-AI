@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, insert, func, desc, update
+from sqlalchemy import select, insert, func, desc, update, and_
 from sqlalchemy.orm import selectinload
-from app.models.learning import LearnerProfile, DiagnosticQuestion, DiagnosticAttempt, SkillScore, Skill, LearningPath, PathItem
+from app.models.learning import LearnerProfile, DiagnosticQuestion, DiagnosticAttempt, SkillScore, Skill, LearningPath, PathItem, ReinforcementTask
 from app.models.content import Course, Lesson, Module
 from app.models.analytics import Event
 from app.schemas.learning import OnboardingStart, DiagnosticSubmit
@@ -105,12 +105,36 @@ class OnboardingService:
                 "unlocked_at": item.unlocked_at
             })
             
+        # Get active reinforcement tasks
+        tasks_query = select(ReinforcementTask).where(
+            and_(
+                ReinforcementTask.learner_id == path.learner_profile.user_id,
+                ReinforcementTask.completed_at == None
+            )
+        )
+        tasks_result = await db.execute(tasks_query)
+        tasks = tasks_result.scalars().all()
+        
+        reinforcement_data = []
+        for t in tasks:
+            # Fetch lesson details for titles
+            lessons_query = select(Lesson).where(Lesson.id.in_(t.lesson_ids))
+            lessons_res = await db.execute(lessons_query)
+            lessons = lessons_res.scalars().all()
+            
+            reinforcement_data.append({
+                "id": t.id,
+                "reason": t.reason,
+                "lessons": [{"id": l.id, "title": l.title} for l in lessons]
+            })
+
         return {
             "id": path.id,
             "generated_at": path.generated_at,
             "version": path.version,
             "status": path.status,
-            "items": formatted_items
+            "items": formatted_items,
+            "reinforcement_tasks": reinforcement_data
         }
 
     async def get_learning_path(self, db: AsyncSession, user_id: uuid.UUID):

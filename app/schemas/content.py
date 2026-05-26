@@ -49,6 +49,13 @@ class LessonBase(BaseModel):
     position: int
     estimated_minutes: int
 
+class ContentBlockRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    position: int
+    block_type: str
+    content: str
+
 class LessonCreate(LessonBase):
     module_id: uuid.UUID
 
@@ -63,4 +70,5 @@ class LessonRead(LessonBase):
     status: str
     version: int
     module_id: uuid.UUID
+    content_blocks: List[ContentBlockRead] = []
     model_config = ConfigDict(from_attributes=True)

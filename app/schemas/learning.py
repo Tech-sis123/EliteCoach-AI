@@ -40,6 +40,7 @@ class LearningPathRead(BaseModel):
     version: int
     status: str
     items: List[PathItemRead]
+    reinforcement_tasks: Optional[List[Dict]] = None
 
 class ModuleRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)

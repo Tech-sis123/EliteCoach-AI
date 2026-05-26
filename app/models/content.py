@@ -42,6 +42,17 @@ class Lesson(Base, BaseMixin):
     version: Mapped[int] = mapped_column(Integer, default=1)
 
     module: Mapped[Module] = relationship("Module", back_populates="lessons")
+    content_blocks: Mapped[List[ContentBlock]] = relationship("ContentBlock", back_populates="lesson", cascade="all, delete-orphan")
+
+class ContentBlock(Base, BaseMixin):
+    __tablename__ = "content_blocks"
+    
+    lesson_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("lessons.id"))
+    position: Mapped[int] = mapped_column(Integer)
+    block_type: Mapped[str] = mapped_column(String) # text, video, image, code
+    content: Mapped[str] = mapped_column(String)
+    
+    lesson: Mapped[Lesson] = relationship("Lesson", back_populates="content_blocks")
 
 class RagChunk(Base, BaseMixin):
     __tablename__ = "rag_chunks"
