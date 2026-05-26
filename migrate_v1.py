@@ -11,6 +11,7 @@ async def migrate():
             "verification_token_hash": "VARCHAR",
             "phone": "VARCHAR",
             "avatar_url": "VARCHAR",
+            "subject_area": "VARCHAR",
             "email_verified_at": "TIMESTAMP WITH TIME ZONE",
             "is_deleted": "BOOLEAN DEFAULT FALSE"
         }
@@ -24,6 +25,24 @@ async def migrate():
             if not result.fetchone():
                 print(f"Adding column '{column_name}' to 'users' table...")
                 await conn.execute(text(f"ALTER TABLE users ADD COLUMN {column_name} {column_type};"))
+            else:
+                print(f"Column '{column_name}' already exists.")
+
+    print("Checking for missing columns in 'escalations' table...")
+    async with engine.begin() as conn:
+        escalation_columns = {
+            "manual_reason": "VARCHAR(500)",
+            "resolved_at": "TIMESTAMP WITH TIME ZONE"
+        }
+        for column_name, column_type in escalation_columns.items():
+            result = await conn.execute(text(f"""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name='escalations' AND column_name='{column_name}';
+            """))
+            if not result.fetchone():
+                print(f"Adding column '{column_name}' to 'escalations' table...")
+                await conn.execute(text(f"ALTER TABLE escalations ADD COLUMN {column_name} {column_type};"))
             else:
                 print(f"Column '{column_name}' already exists.")
 
