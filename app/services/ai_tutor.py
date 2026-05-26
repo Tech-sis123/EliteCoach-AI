@@ -13,6 +13,7 @@ from app.integrations.anthropic_client import anthropic_client
 from app.integrations.openai_client import openai_client
 from app.core.logging import logger
 from app.core.config import settings
+from fastapi import HTTPException
 import uuid
 import json
 import asyncio
@@ -97,11 +98,22 @@ class AiTutorService:
         
         # 6. Build System Prompt
         weak_skills_query = select(Skill.name).join(SkillScore).where(
-            SkillScore.learner_profile_id == profile.id if profile else None,
-            SkillScore.score < 60
+            and_(
+                SkillScore.learner_profile_id == profile.id if profile else None,
+                SkillScore.score < 60
+            )
         )
         weak_skills = (await db.execute(weak_skills_query)).scalars().all() if profile else []
         
+        # Also get recent knowledge check failures
+        recent_mistakes_query = select(KnowledgeCheck.question_text).join(KnowledgeCheckResponse).where(
+            and_(
+                KnowledgeCheckResponse.session_id == session_id,
+                KnowledgeCheckResponse.is_correct == False
+            )
+        ).limit(3)
+        recent_mistakes = (await db.execute(recent_mistakes_query)).scalars().all()
+
         system_prompt = f"""You are an AI tutor for the lesson: "{session.lesson.title}".
 
 STRICT RULE: You must ONLY answer using the lesson context provided below.
@@ -112,6 +124,7 @@ Do NOT make up information. Do NOT use outside knowledge.
 Learner profile:
 - Career goal: {profile.career_goal if profile else 'Not set'}
 - Areas to reinforce: {', '.join(weak_skills) or 'None identified yet'}
+- Recent mistakes in this session: {', '.join(recent_mistakes) or 'None yet'}
 
 Lesson context:
 {context_text}
