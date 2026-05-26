@@ -20,10 +20,7 @@ app = FastAPI(
 
 # CORS
 origins = [
-    "*",
-    settings.FRONTEND_URL,
-    "http://localhost:3000",
-    "http://localhost:5173", # Common Vite port
+    "*"
 ]
 
 app.add_middleware(
