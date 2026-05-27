@@ -42,9 +42,22 @@ We use Paystack for payment processing with a reliable webhook-first approach.
 
 -   **BaseMixin**: All models inherit from a `BaseMixin` which provides `id` (UUID), `created_at`, and `updated_at` automatically.
 -   **JSONB Usage**: Complex data like diagnostic answers, AI summaries, and audit log payloads are stored as JSONB for flexibility and performance on PostgreSQL.
--   **Soft Deletion**: For NDPR compliance, we use an `is_deleted` flag and data anonymization instead of hard-deleting record references initially.
+## 5. Security & RBAC
 
-## 5. Deployment Recommendation
+The system uses a strict Role-Based Access Control (RBAC) model with 6 primary roles:
+- `solo_learner`: Standard registration user.
+- `org_learner`: Users associated with an Enterprise organization.
+- `tutor_author`: Content creators and curriculum designers.
+- `tutor_responder`: Human backup for AI escalations.
+- `enterprise_admin`: Manages team subscriptions and analytics.
+- `platform_admin`: Full system access.
+
+### Administrative Hardening
+- **Bootstrapping**: The first `platform_admin` MUST be created via the CLI script provided in `scripts/create_admin.py`.
+- **API Isolation**: The API explicitly blocks the registration of `platform_admin` roles via any public endpoint.
+- **Token Claims**: JWT tokens include a `roles` claim used by the `RoleChecker` dependency to enforce access at the route level.
+
+## 6. Deployment Recommendation
 
 -   **Containerization**: Use the provided `Dockerfile` (multi-stage build).
 -   **Orchestration**: Kubernetes or AWS ECS.
@@ -55,3 +68,17 @@ We use Paystack for payment processing with a reliable webhook-first approach.
 
 Every administrative action (toggling flags, deleting users, approving content) is logged in the `admin_actions` table.
 System events (logins, failed attempts) are logged in the `events` table for security monitoring.
+
+## 7. Administrative CLI Tools
+
+To bootstrap the system or perform privileged operations, use the provided CLI scripts:
+
+- **Admin Creation**: `scripts/create_admin.py` creates the first `platform_admin` without going through public API registration.
+- **Documentation**: See [Admin Scripts README](scripts/README.md) for usage instructions.
+
+## 8. Development Prerequisites (Windows)
+
+Due to dependencies like `greenlet` and `SQLAlchemy` (Async), Windows users must ensure:
+1. **Python 3.13+** is installed.
+2. **Microsoft Visual C++ Redistributable** is installed (specifically the latest version of `vc_redist.x64.exe`).
+3. Virtual environment initialized with `python -m venv .venv`.

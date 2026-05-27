@@ -4,7 +4,17 @@ Welcome to the team! We maintain high standards for code quality, testing, and d
 
 ## 🛠 Development Workflow
 
-### 1. Branching Strategy
+### 1. Environment Setup
+- **Python**: Version 3.13+ required.
+- **Windows Users**: Must install the [Microsoft Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) to support async database drivers.
+- **Installation**:
+  ```bash
+  python -m venv .venv
+  source .venv/bin/activate  # Or .venv\Scripts\activate on Windows
+  pip install -r requirements.txt
+  ```
+
+### 2. Branching Strategy
 We use a feature-branch workflow.
 - `main`: Production-ready code.
 - `develop`: Pre-production integration branch.

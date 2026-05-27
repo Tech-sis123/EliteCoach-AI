@@ -48,6 +48,19 @@ async def test_login_returns_roles(client: AsyncClient, db):
     assert "user" in data
     assert data["user"]["email"] == email
     assert isinstance(data["user"]["roles"], list)
+
+@pytest.mark.asyncio
+async def test_register_platform_admin_blocked(client: AsyncClient):
+    email = f"admin-{uuid.uuid4().hex[:6]}@example.com"
+    payload = {
+        "email": email,
+        "full_name": "Fake Admin",
+        "password": "strongpassword123",
+        "role": "platform_admin"
+    }
+    response = await client.post("/api/v1/auth/register", json=payload)
+    assert response.status_code == 403
+    assert "Registration with this role is not allowed" in response.json()["detail"]
     assert "solo_learner" in data["user"]["roles"]
 
 @pytest.mark.asyncio
@@ -101,6 +114,7 @@ async def test_register_platform_admin_blocked(client: AsyncClient):
     }
     response = await client.post("/api/v1/auth/register", json=payload)
     assert response.status_code == 403
+    assert response.json()["detail"] == "This role cannot be self-registered. Contact your system administrator."
 
 @pytest.mark.asyncio
 async def test_register_duplicate_email_returns_409(client: AsyncClient):

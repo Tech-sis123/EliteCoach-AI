@@ -45,13 +45,27 @@ postgresql.JSONB = SQLiteJSONB
 postgresql.ARRAY = SQLiteARRAY
 # postgresql.UUID = SafeSQLiteUUID  # Might be too aggressive
 
+from unittest.mock import patch
+# Mock analytics track to avoid Celery/Redis overhead in tests
+patch("app.services.analytics.analytics_service.track", return_value=None).start()
+
 from app.main import app
 from app.core.database import Base, engine as global_engine, AsyncSessionLocal
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import StaticPool
 from app.core.config import settings
+from app.worker.celery_app import celery_app
 import pytest_asyncio
 import asyncio
+
+# Configure Celery for testing
+celery_app.conf.update(
+    task_always_eager=True,
+    task_eager_propagates=True,
+    broker_url="memory://",
+    result_backend="rpc://",
+    broker_connection_retry_on_startup=True
+)
 
 # Use SQLite for faster and isolated tests
 SQLALCHEMY_TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"

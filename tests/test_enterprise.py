@@ -74,6 +74,13 @@ async def test_enterprise_assignments(client: AsyncClient, token: str):
 async def test_enterprise_teams(client: AsyncClient, token: str):
     headers = {"Authorization": f"Bearer {token}"}
     
+    # Setup: Create Organization first
+    await client.post("/api/v1/enterprise/organizations", json={
+        "name": "Team Corp",
+        "slug": f"team-{uuid.uuid4().hex[:4]}",
+        "plan": "enterprise_gold"
+    }, headers=headers)
+
     # List teams
     teams_res = await client.get("/api/v1/enterprise/teams", headers=headers)
     assert teams_res.status_code == 200
@@ -86,6 +93,13 @@ async def test_enterprise_teams(client: AsyncClient, token: str):
 async def test_enterprise_users(client: AsyncClient, token: str):
     headers = {"Authorization": f"Bearer {token}"}
     
+    # Setup: Create Organization first
+    await client.post("/api/v1/enterprise/organizations", json={
+        "name": "User Corp",
+        "slug": f"user-{uuid.uuid4().hex[:4]}",
+        "plan": "enterprise_gold"
+    }, headers=headers)
+
     # List users
     users_res = await client.get("/api/v1/enterprise/users", headers=headers)
     assert users_res.status_code == 200

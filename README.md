@@ -38,11 +38,21 @@ Empowering professionals through AI-driven, personalized education that adapts t
 │   ├── services/       # Business Logic (The brain of the app)
 │   ├── integrations/   # Third-party clients (OpenAI, Anthropic, Paystack)
 │   └── main.py         # Entry point
+├── docs/               # Detailed Documentation (Frontend, Workflow, API)
+├── scripts/            # Admin CLI Tools (Setup, Seeding)
 ├── tests/              # Comprehensive test suite (30+ test files)
 ├── alembic/            # Database migration scripts
 ├── .env.example        # Template for environment variables
 └── README.md
 ```
+
+---
+
+## 📚 Documentation
+-   [Technical Documentation](TECHNICAL_DOCUMENTATION.md): Deep dive into RAG, Learning Paths, and RBAC.
+-   [Frontend Integration Guide](docs/FRONTEND_INTEGRATION.md): Guide for frontend developers connecting to this API.
+-   [System Workflow Guide](docs/SYSTEM_WORKFLOW_GUIDE.md): Understanding the Learner journey.
+-   [Admin Operations](scripts/README.md): How to create administrators and seed data.
 
 ---
 

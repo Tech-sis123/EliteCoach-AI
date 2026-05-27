@@ -12,6 +12,14 @@ router = APIRouter()
 
 @router.post("/register", response_model=LoginResponse)
 async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
+    BLOCKED_ROLES = {"platform_admin"}
+
+    if user_in.role in BLOCKED_ROLES:
+        raise HTTPException(
+            status_code=403,
+            detail="This role cannot be self-registered. Contact your system administrator."
+        )
+
     return await auth_service.register_user(db, user_in)
 
 @router.post("/login", response_model=LoginResponse)
