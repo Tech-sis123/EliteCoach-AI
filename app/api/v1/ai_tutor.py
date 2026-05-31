@@ -28,6 +28,16 @@ async def start_session(
 ):
     return await ai_tutor_service.start_session(db, user_id, data.lesson_id)
 
+
+@router.post("/learning/lesson/{id}/start")
+async def start_lesson_session(
+    id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(get_current_user_id)
+):
+    """Idempotent: start or return existing active session for this learner+lesson."""
+    return await ai_tutor_service.start_session(db, user_id, id)
+
 @router.post("/session/{id}/message")
 async def send_message(
     id: uuid.UUID,
@@ -111,6 +121,27 @@ async def get_escalation_status(
         "resolved_at": esc.resolved_at,
         "can_cancel": can_cancel
     }
+
+
+@router.get("/learning/sessions/active")
+async def get_active_learning_sessions(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Return list of active lesson sessions for the current user."""
+    from app.models.ai_tutor import LessonSession, SessionStatus
+    from sqlalchemy import select, and_
+
+    query = select(LessonSession).where(
+        and_(
+            LessonSession.learner_id == current_user.id,
+            LessonSession.status == SessionStatus.ACTIVE,
+            LessonSession.is_deleted == False
+        )
+    )
+    result = await db.execute(query)
+    sessions = result.scalars().all()
+    return sessions
 
 @router.get("/learning/lesson/{id}/checks", response_model=List[KnowledgeCheckRead])
 async def get_lesson_checks(
