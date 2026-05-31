@@ -13,6 +13,17 @@ class AuthService:
     def _hash_token(self, token: str) -> str:
         return hashlib.sha256(token.encode()).hexdigest()
 
+    TUTOR_PAIRED_ROLES = {
+        UserRoleEnum.TUTOR_AUTHOR.value: [
+            UserRoleEnum.TUTOR_AUTHOR,
+            UserRoleEnum.TUTOR_RESPONDER,
+        ],
+        UserRoleEnum.TUTOR_RESPONDER.value: [
+            UserRoleEnum.TUTOR_AUTHOR,
+            UserRoleEnum.TUTOR_RESPONDER,
+        ],
+    }
+
     async def register_user(self, db: AsyncSession, user_in: UserCreate):
         import secrets
         import string
@@ -44,10 +55,11 @@ class AuthService:
         db.add(db_user)
         await db.flush()
         
-        # Assign role from request instead of hardcoding solo_learner
-        target_role = user_in.role or UserRoleEnum.SOLO_LEARNER
-        role = UserRole(user_id=db_user.id, role=target_role)
-        db.add(role)
+        # Pair tutor_author/tutor_responder on registration; assign one role otherwise.
+        target_role = user_in.role or UserRoleEnum.SOLO_LEARNER.value
+        roles_to_assign = self.TUTOR_PAIRED_ROLES.get(target_role, [target_role])
+        for role_value in roles_to_assign:
+            db.add(UserRole(user_id=db_user.id, role=UserRoleEnum(role_value)))
         
         await db.commit()
         await db.refresh(db_user, attribute_names=["roles"])

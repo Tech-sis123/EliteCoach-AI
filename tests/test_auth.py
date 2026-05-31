@@ -61,7 +61,6 @@ async def test_register_platform_admin_blocked(client: AsyncClient):
     response = await client.post("/api/v1/auth/register", json=payload)
     assert response.status_code == 403
     assert "Registration with this role is not allowed" in response.json()["detail"]
-    assert "solo_learner" in data["user"]["roles"]
 
 @pytest.mark.asyncio
 async def test_login_platform_admin_role_in_response(client: AsyncClient, db):
@@ -90,7 +89,7 @@ async def test_login_platform_admin_role_in_response(client: AsyncClient, db):
     assert "platform_admin" in data["user"]["roles"]
 
 @pytest.mark.asyncio
-async def test_register_with_tutor_author_role(client: AsyncClient):
+async def test_tutor_author_gets_both_roles(client: AsyncClient):
     email = f"tutor-{uuid.uuid4().hex[:6]}@example.com"
     payload = {
         "email": email,
@@ -101,7 +100,10 @@ async def test_register_with_tutor_author_role(client: AsyncClient):
     response = await client.post("/api/v1/auth/register", json=payload)
     assert response.status_code == 200
     data = response.json()
-    assert data["user"]["roles"] == ["tutor_author"]
+    roles = data["user"]["roles"]
+    assert isinstance(roles, list)
+    assert "tutor_author" in roles
+    assert "tutor_responder" in roles
 
 @pytest.mark.asyncio
 async def test_register_platform_admin_blocked(client: AsyncClient):

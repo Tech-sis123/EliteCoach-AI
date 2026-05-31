@@ -94,11 +94,18 @@ async def create_subscription(
     """Initialize a Paystack transaction."""
     amount_map = {"monthly": 5000, "yearly": 50000}
     amount = amount_map.get(plan, 5000)
+    plan_code_map = {
+        "monthly": settings.PAYSTACK_MONTHLY_PLAN_CODE,
+        "yearly": settings.PAYSTACK_YEARLY_PLAN_CODE,
+    }
+    plan_code = plan_code_map.get(plan)
     
     res = await paystack_client.initialize_transaction(
-        current_user.email, 
-        amount, 
-        callback_url=f"{settings.FRONTEND_URL}/payment/verify"
+        email=current_user.email,
+        amount_ngn=amount,
+        callback_url=settings.PAYSTACK_CALLBACK_URL,
+        plan_code=plan_code,
+        metadata={"user_id": str(current_user.id), "plan": plan},
     )
     return res
 

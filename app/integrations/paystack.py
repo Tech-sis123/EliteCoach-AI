@@ -1,4 +1,5 @@
 import httpx
+from typing import Optional
 from app.core.config import settings
 from app.core.logging import logger
 
@@ -11,14 +12,30 @@ class PaystackClient:
             "Content-Type": "application/json"
         }
 
-    async def initialize_transaction(self, email: str, amount_ngn: int, callback_url: str):
+    async def initialize_transaction(
+        self,
+        email: str,
+        amount_ngn: int,
+        callback_url: str,
+        plan_code: Optional[str] = None,
+        metadata: Optional[dict] = None,
+    ):
         # Paystack expects amount in kobo
         amount_kobo = amount_ngn * 100
         url = f"{self.base_url}/transaction/initialize"
+        payload = {
+            "email": email,
+            "amount": amount_kobo,
+            "callback_url": callback_url,
+            "metadata": metadata or {},
+        }
+        if plan_code:
+            payload["plan"] = plan_code
+
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 url, 
-                json={"email": email, "amount": amount_kobo, "callback_url": callback_url},
+                json=payload,
                 headers=self.headers
             )
             return response.json()

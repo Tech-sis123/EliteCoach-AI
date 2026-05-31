@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
     PAYSTACK_SECRET_KEY: Optional[str] = None
+    PAYSTACK_CALLBACK_URL: str = "http://localhost:3000/payment/verify"
+    PAYSTACK_MONTHLY_PLAN_CODE: Optional[str] = None
+    PAYSTACK_YEARLY_PLAN_CODE: Optional[str] = None
     BREVO_API_KEY: Optional[str] = None
     TWILIO_ACCOUNT_SID: Optional[str] = None
     TWILIO_AUTH_TOKEN: Optional[str] = None
