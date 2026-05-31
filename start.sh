@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Run migrations/database patches
 echo "Running database migrations..."
